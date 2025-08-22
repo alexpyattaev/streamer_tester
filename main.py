@@ -52,7 +52,7 @@ def main():
 
     server = subprocess.Popen(f"{cli} {args}",
         shell=True, text=True,
-        stdout=sys.stdin,
+        stdout=subprocess.PIPE,
         stderr=sys.stderr,
         env = os.environ.copy(),
         bufsize=1
@@ -61,11 +61,12 @@ def main():
     for node in client_nodes:
         node.run_agave_client()
 
-    #start = time.time()
+    start = time.time()
 
-    #while time.time() - start < 4:
-    #    if server.stdout.readable():
-    #        print(server.stdout.readline()) # pyright: ignore
+    while time.time() - start < 4:
+        if server.stdout.readable(): #pyright: ignore
+            print(server.stdout.readline()) # pyright: ignore
+
 
     server.kill()
     print("Server killed")
