@@ -36,6 +36,7 @@ for i in range(1, N + 1):
             pubkey = line.split("pubkey:")[1].strip()
             pubkeys.append(pubkey)
             break
+    shutil.move(f"{keypair_dir}/keypair_{i}.json", f"{keypair_dir}/{pubkey}.json")
 
 # --- Write public keys to file ---
 with output_file.open("w") as f:
