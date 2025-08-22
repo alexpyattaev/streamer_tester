@@ -1,10 +1,19 @@
 #!/bin/python3
+from operator import sub
 import subprocess
 import argparse
 import time
 from random import randint
 import sys
 import os
+import unicodedata
+
+def strip_nonprintable(s):
+    return ''.join(
+        ch for ch in s
+        if unicodedata.category(ch)[0] != "C"
+    )
+
 
 
 class ClientNode():
@@ -48,12 +57,12 @@ def main():
     print("Environment is up.\nRunning a server")
     cli = "sudo --preserve-env=RUST_LOG ip netns exec server"
     # args = f"./mock_server/target/debug/server --listen 10.0.1.1:8009 --receive-window-size 630784  --max-concurrent-streams 512 --stream-receive-window-size 1232"
-    args = "./swqos --test-duration 3.4 --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000"
+    args = "./swqos --test-duration 3.0 --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000"
 
     server = subprocess.Popen(f"{cli} {args}",
         shell=True, text=True,
-        stdout=subprocess.PIPE,
-        stderr=sys.stderr,
+        stdout=subprocess.DEVNULL,
+        stderr=sys.stdout,
         env = os.environ.copy(),
         bufsize=1
    )
@@ -64,12 +73,13 @@ def main():
     start = time.time()
 
     while time.time() - start < 4:
-        if server.stdout.readable(): #pyright: ignore
-            print(server.stdout.readline()) # pyright: ignore
+        if server.poll() is not None:
+            print("Server exited")
+            break
 
-
-    server.kill()
-    print("Server killed")
+    if server.poll() is None:
+        server.kill()
+        print("Server killed")
     server.wait()
     for node in client_nodes:
         node.proc.wait()
