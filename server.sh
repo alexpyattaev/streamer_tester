@@ -2,6 +2,7 @@
 SRV="ip netns exec server"
 
 echo "Creating a directory for result"
+rm -rf results
 mkdir -p results
 chmod a+rwx results
 

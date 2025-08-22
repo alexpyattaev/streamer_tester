@@ -16,7 +16,7 @@ pub struct StatsSample {
     pub time_stamp: u64,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct StatsCollection(pub Vec<StatsSample>);
 
 impl StatsCollection {
@@ -35,7 +35,7 @@ impl StatsCollection {
         let file = std::fs::File::create(path).unwrap();
         let mut csv_writer = csv::Writer::from_writer(file);
         csv_writer
-            .write_record(&["udp_tx", "udp_rx", "time_stamp"])
+            .write_record(["udp_tx", "udp_rx", "time_stamp"])
             .unwrap();
         for stat in &self.0 {
             csv_writer
@@ -60,6 +60,6 @@ pub fn file_bin(host: String) -> Option<std::io::BufWriter<std::fs::File>> {
     let mut path = std::path::PathBuf::from("results");
     path.push(file_name);
     let file = std::fs::File::create(path).unwrap();
-    let file = std::io::BufWriter::with_capacity(10 * 1024, file);
+    let file = std::io::BufWriter::with_capacity(1024 * 1024, file);
     Some(file)
 }

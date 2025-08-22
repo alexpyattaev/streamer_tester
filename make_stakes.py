@@ -5,9 +5,9 @@ import shutil
 from pathlib import Path
 
 # --- Configuration ---
-N = 10  # number of keypairs to generate
-STAKE_MIN = 10000
-STAKE_MAX = 1000000
+N = 5  # number of keypairs to generate
+STAKE_MIN = 10000 # this is in SOL
+STAKE_MAX = 10000000 # this is also in SOL
 
 output_file = Path("solana_pubkeys.txt")
 keypair_dir = Path("solana_keypairs")  # folder to store keypair JSON files

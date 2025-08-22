@@ -3,6 +3,9 @@ import subprocess
 import argparse
 import time
 from random import randint
+import sys
+import os
+
 
 class ClientNode():
     def __init__(self, ip:str, pubkey:str, target_ip:str):
@@ -12,7 +15,7 @@ class ClientNode():
 
     def run_agave_client(self):
         cli = f"sudo ip netns exec client{self.pubkey[0:8]}"
-        args = f"./mock_server/target/release/client --target {self.target_ip}:8000 --duration 3.3 --host-name {self.pubkey} --staked-identity-file solana_keypairs/{self.pubkey}.json"
+        args = f"./mock_server/target/release/client --target {self.target_ip}:8000 --duration 3.3 --host-name {self.pubkey} --staked-identity-file solana_keypairs/{self.pubkey}.json --num-connections 1 --disable-congestion"
         self.proc = subprocess.Popen(f"{cli} {args}",
                                 shell=True, text=True, stdout=subprocess.DEVNULL
                                 )
@@ -43,19 +46,27 @@ def main():
 
 
     print("Environment is up.\nRunning a server")
-    cli = "sudo ip netns exec server"
+    cli = "sudo --preserve-env=RUST_LOG ip netns exec server"
     # args = f"./mock_server/target/debug/server --listen 10.0.1.1:8009 --receive-window-size 630784  --max-concurrent-streams 512 --stream-receive-window-size 1232"
     args = "./swqos --test-duration 3.4 --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000"
+
     server = subprocess.Popen(f"{cli} {args}",
-        shell=True, text=True)#, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-   # )
-    print("Running clients")
+        shell=True, text=True,
+        stdout=sys.stdin,
+        stderr=sys.stderr,
+        env = os.environ.copy(),
+        bufsize=1
+   )
 
     for node in client_nodes:
         node.run_agave_client()
-    print("Clients are up")
 
-    time.sleep(3.5)
+    #start = time.time()
+
+    #while time.time() - start < 4:
+    #    if server.stdout.readable():
+    #        print(server.stdout.readline()) # pyright: ignore
+
     server.kill()
     print("Server killed")
     server.wait()

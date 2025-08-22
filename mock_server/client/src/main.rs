@@ -3,7 +3,9 @@
 //! Checkout the `README.md` for guidance.
 
 use quinn::ClientConfig;
+use rustls::crypto::hmac::Key;
 use shared::stats_collection::{file_bin, StatsCollection, StatsSample};
+use solana_sdk::{pubkey::Pubkey, signer::Signer};
 use std::io::Write as _;
 use {
     client::{
@@ -49,19 +51,21 @@ fn main() {
 
 #[tokio::main]
 async fn run(parameters: ClientCliParameters) -> Result<(), QuicClientError> {
-    let client_certificate =
-        if let Some(staked_identity_file) = parameters.staked_identity_file.clone() {
-            let staked_identity = Keypair::read_from_file(staked_identity_file)
-                .map_err(|_err| QuicClientError::KeypairReadFailure)?;
-            Arc::new(QuicClientCertificate::new(&staked_identity))
-        } else {
-            Arc::new(QuicClientCertificate::default())
-        };
-    let client_config = create_client_config(client_certificate, parameters.disable_congestion);
-    let result = match parameters.host_name.clone() {
-        Some(host_name) => run_endpoint(client_config, parameters.clone(), Some(&host_name)).await,
-        None => run_endpoint(client_config, parameters.clone(), None).await,
+    let identity = if let Some(staked_identity_file) = parameters.staked_identity_file.clone() {
+        Keypair::read_from_file(staked_identity_file)
+            .map_err(|_err| QuicClientError::KeypairReadFailure)?
+    } else {
+        Keypair::new()
     };
+    let client_certificate = Arc::new(QuicClientCertificate::new(&identity));
+    let client_config = create_client_config(client_certificate, parameters.disable_congestion);
+    let result = run_endpoint(
+        client_config,
+        parameters.clone(),
+        identity.pubkey(),
+        parameters.host_name.clone().as_ref(),
+    )
+    .await;
     match result {
         Ok(collection) => {
             if let Some(host_name) = parameters.host_name.clone() {
@@ -86,6 +90,7 @@ async fn run_endpoint(
         num_connections,
         ..
     }: ClientCliParameters,
+    identity: Pubkey,
     host_name: Option<&String>,
 ) -> Result<StatsCollection, QuicClientError> {
     let endpoint =
@@ -97,10 +102,11 @@ async fn run_endpoint(
     let mut stats_dt: u64;
 
     println!("connection.stats():{:?}", connection.stats());
-    let mut file_b: Option<std::io::BufWriter<std::fs::File>> = None;
-    if let Some(host_name) = host_name {
-        file_b = file_bin(host_name.into());
-    }
+    let mut file_binary_log = if let Some(host_name) = host_name {
+        file_bin(host_name.into())
+    } else {
+        None
+    };
     let start = Instant::now();
     let mut transaction_id = 0;
     let mut tx_buffer = [0u8; PACKET_DATA_SIZE];
@@ -128,7 +134,13 @@ async fn run_endpoint(
             }
         }
 
-        generate_dummy_data(&mut tx_buffer, transaction_id, timestamp(), tx_size);
+        generate_dummy_data(
+            &mut tx_buffer,
+            transaction_id,
+            timestamp(),
+            identity,
+            tx_size,
+        );
 
         if let Ok(dt) =
             send_data_over_stream(&connection, &tx_buffer[0..tx_size as usize], start.clone()).await
@@ -139,7 +151,7 @@ async fn run_endpoint(
         }
     }
 
-    if let Some(writer) = file_b.as_mut() {
+    if let Some(writer) = file_binary_log.as_mut() {
         for val in &stat_buff {
             writer.write_all(&val.to_ne_bytes()).unwrap();
         }

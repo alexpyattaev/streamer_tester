@@ -183,11 +183,11 @@ impl Stats {
 
 #[tokio::main]
 async fn run(options: ServerCliParameters) -> Result<(), QuicServerError> {
-    let (sender, receiver) = channel::<u32>();
+    let (timing_sender, timing_receiver) = channel::<u32>();
     std::thread::spawn(move || {
         let mut file = file_bin("Server".into()).unwrap();
 
-        while let Ok(timestamp) = receiver.recv() {
+        while let Ok(timestamp) = timing_receiver.recv() {
             file.write_all(&timestamp.to_ne_bytes()).unwrap();
         }
     });
@@ -255,7 +255,7 @@ async fn run(options: ServerCliParameters) -> Result<(), QuicServerError> {
                         .num_accepted_connections
                         .fetch_add(1, Ordering::Relaxed);
                     let connection = conn.await?;
-                    let fut = handle_connection(connection, reordering_log_file.clone(), stats.clone(), token.clone(), sender.clone(), start.clone());
+                    let fut = handle_connection(connection, reordering_log_file.clone(), stats.clone(), token.clone(), timing_sender.clone(), start.clone());
                     tokio::spawn(async move {
                         if let Err(e) = fut.await {
                             error!("connection failed: {reason}", reason = e.to_string())
