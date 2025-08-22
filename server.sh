@@ -3,7 +3,7 @@ SRV="ip netns exec server"
 
 echo "Creating a directory for result"
 mkdir -p results
-chmod 666 results
+chmod a+rwx results
 
 echo "Add namespace"
 ip netns del server 2>> /dev/null
