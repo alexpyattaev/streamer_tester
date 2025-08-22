@@ -3,9 +3,13 @@ import subprocess
 import random
 import shutil
 from pathlib import Path
+import argparse
 
+parser = argparse.ArgumentParser(prog='make_stakes',description="Stake identity maker",
+                                     )
+parser.add_argument('hosts',type=int, default=5, help='how many to make')
+args = parser.parse_args()
 # --- Configuration ---
-N = 5  # number of keypairs to generate
 STAKE_MIN = 10000 # this is in SOL
 STAKE_MAX = 10000000 # this is also in SOL
 
@@ -17,7 +21,7 @@ keypair_dir.mkdir(exist_ok=True)
 # --- Generate keypairs ---
 pubkeys = []
 
-for i in range(1, N + 1):
+for i in range(1, args.hosts + 1):
     keypair_path = keypair_dir / f"keypair_{i}.json"
     # Run solana-keygen to generate a new keypair
     result = subprocess.run(
@@ -36,6 +40,8 @@ for i in range(1, N + 1):
             pubkey = line.split("pubkey:")[1].strip()
             pubkeys.append(pubkey)
             break
+    else:
+        raise RuntimeError("keygen output parse fail")
     shutil.move(f"{keypair_dir}/keypair_{i}.json", f"{keypair_dir}/{pubkey}.json")
 
 # --- Write public keys to file ---
@@ -44,4 +50,4 @@ with output_file.open("w") as f:
         stake = random.randint(STAKE_MIN, STAKE_MAX)
         f.write(f"{pk} {stake}\n")
 
-print(f"Generated {N} keypairs. Public keys written to {output_file}")
+print(f"Generated {args.hosts} keypairs. Public keys written to {output_file}")

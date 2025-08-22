@@ -16,4 +16,4 @@ stakes = {b58decode(a):b for a,b in stakes}
 
 print(f"Captured {len(data)} transactions")
 for id in stakes:
-    print(f"{b58encode(id)} ={(data['id'] == id).sum()}")
+    print(f"{b58encode(id).decode('ascii')} = {(data['id'] == id).sum()}")
