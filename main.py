@@ -5,6 +5,7 @@ import time
 import sys
 import os
 import unicodedata
+import json
 
 def strip_nonprintable(s):
     return ''.join(
@@ -15,9 +16,10 @@ def strip_nonprintable(s):
 
 
 class ClientNode():
-    def __init__(self, ip:str, pubkey:str, target_ip:str):
+    def __init__(self, ip:str, pubkey:str, target_ip:str, latency:int):
         self.ip = ip
         self.pubkey = pubkey
+        self.latency = latency
         self.target_ip = target_ip
 
     def run_agave_client(self, duration:float, tx_size:int):
@@ -31,9 +33,9 @@ class ClientNode():
                                 )
 
     def wait(self):
-        print(f"==== Terminating client {self.pubkey}")
-        print(self.proc.stdout.read()) # pyright:ignore
-        print(self.proc.stderr.read()) # pyright:ignore
+        print(f"==== Terminating client {self.pubkey} latency {self.latency}")
+        print(self.proc.stdout.read(), end="") # pyright:ignore
+        print(self.proc.stderr.read(), end="") # pyright:ignore
         self.proc.wait()
         print("======")
 
@@ -49,6 +51,7 @@ def main():
     parser.add_argument('--tx-size',type=int,help='Transaction size',default=1000)
 
     args = parser.parse_args()
+
     if args.loss_percentage not in range(0,100):
         print("run ./sosim -h'")
         exit()
@@ -56,14 +59,18 @@ def main():
     client_identities = [l.strip().split(' ')[0].strip() for l in open(args.hosts,'r').readlines()]
     client_nodes = []
 
+    configs = {"duration":args.duration, "tx-size":args.tx_size}
     subprocess.run("sudo ./server.sh", shell=True)
     for idx, host_id in enumerate(client_identities, start = 2):
         if args.latency == 0:
             link_delay = link_delays[(idx%len(link_delays)-1)]
         else:
             link_delay = args.latency
-        client_nodes.append(ClientNode(f"10.0.1{idx}",host_id,"10.0.1.1"))
+        configs[host_id] = {"latency":link_delay}
+        client_nodes.append(ClientNode(f"10.0.1{idx}",host_id,"10.0.1.1", latency=link_delay))
         subprocess.run(f"sudo ./client.sh {host_id[0:8]} {idx} {link_delay} {args.loss_percentage}",shell=True)
+
+    json.dump(configs, open("results/config.json", "w"))
 
 
     print("Environment is up.\nRunning a server")

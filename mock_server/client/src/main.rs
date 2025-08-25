@@ -164,6 +164,13 @@ async fn run_endpoint(
     let connection_stats = connection.stats();
     debug!("client connection stats: {:?}", connection_stats);
     info!("TRANSACTIONS_SENT {}", transaction_id);
+    if let Some(host_name) = host_name {
+        let mut num_sent_file =
+            std::fs::File::create(format!("results/{}.summary", host_name)).unwrap();
+        num_sent_file
+            .write_all(&transaction_id.to_ne_bytes())
+            .unwrap();
+    }
     connection.close(0u32.into(), b"done");
 
     // Give the server a fair chance to receive the close packet
