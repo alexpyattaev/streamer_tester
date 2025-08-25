@@ -146,7 +146,6 @@ async fn run_endpoint(
             send_data_over_stream(&connection, &tx_buffer[0..tx_size as usize], start).await
         {
             transaction_id += 1;
-
             stat_buff.push(dt);
         }
     }

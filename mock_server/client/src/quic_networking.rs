@@ -176,8 +176,8 @@ pub async fn send_data_over_stream(
     let mut send_stream = connection.open_uni().await?;
 
     send_stream.write_all(data).await?;
-    //never do this
-    let _ = send_stream.finish();
+    // never do this (c) Alessandro
+    // let _ = send_stream.finish();
     let dt = start.elapsed().as_micros() as u32;
 
     Ok(dt)

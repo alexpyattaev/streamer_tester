@@ -24,7 +24,8 @@ class ClientNode():
 
     def run_agave_client(self, duration:float, tx_size:int):
         cli = f"sudo --preserve-env=RUST_LOG ip netns exec client{self.pubkey[0:8]}"
-        args = f"./mock_server/target/release/client --target {self.target_ip}:8000 --duration {duration} --host-name {self.pubkey} --staked-identity-file solana_keypairs/{self.pubkey}.json --num-connections 1 --tx-size {tx_size}"
+        args = f"./mock_server/target/release/client --target {self.target_ip}:8000 --duration {duration} --host-name {self.pubkey} --staked-identity-file solana_keypairs/{self.pubkey}.json --num-connections 1 --tx-size {tx_size} --disable-congestion"
+
         print(f"running {args}...")
         self.proc = subprocess.Popen(f"{cli} {args}",
                                 shell=True, text=True,
@@ -90,8 +91,9 @@ def main():
     for node in client_nodes:
         node.run_agave_client(args.duration, args.tx_size)
 
-    server.wait(timeout=args.duration+2.0)
-    if server.poll() is None:
+    try:
+        server.wait(timeout=args.duration+2.0)
+    except:
         server.kill()
         print("Server killed")
     server.wait()
@@ -104,3 +106,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+    import parse
+    parse.main()
