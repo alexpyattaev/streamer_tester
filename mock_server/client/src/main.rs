@@ -1,12 +1,13 @@
+#![allow(clippy::arithmetic_side_effects)]
 //! This example demonstrates an HTTP client that requests files from a server.
 //!
 //! Checkout the `README.md` for guidance.
 
 use quinn::ClientConfig;
-use rustls::crypto::hmac::Key;
 use shared::stats_collection::{file_bin, StatsCollection, StatsSample};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 use std::io::Write as _;
+use tracing::debug;
 use {
     client::{
         cli::{build_cli_parameters, ClientCliParameters},
@@ -22,8 +23,8 @@ use {
         sync::Arc,
         time::{Duration, Instant, SystemTime, UNIX_EPOCH},
     },
-    tokio::{task::JoinSet, time::sleep},
-    tracing::{error, info},
+    tokio::time::sleep,
+    tracing::info,
 };
 
 fn main() {
@@ -101,7 +102,6 @@ async fn run_endpoint(
     let mut stats_collector: StatsCollection = StatsCollection::new();
     let mut stats_dt: u64;
 
-    println!("connection.stats():{:?}", connection.stats());
     let mut file_binary_log = if let Some(host_name) = host_name {
         file_bin(host_name.into())
     } else {
@@ -123,13 +123,13 @@ async fn run_endpoint(
 
         if let Some(duration) = duration {
             if start.elapsed() >= duration {
-                info!("Transaction generator for task is stopping...");
+                info!("Stopping TX generation after {duration:?}");
                 break;
             }
         }
         if let Some(max_txs_num) = max_txs_num {
             if transaction_id == max_txs_num / num_connections {
-                info!("Transaction generator for task is stopping...");
+                info!("Stopping TX generation at {max_txs_num}.");
                 break;
             }
         }
@@ -143,7 +143,7 @@ async fn run_endpoint(
         );
 
         if let Ok(dt) =
-            send_data_over_stream(&connection, &tx_buffer[0..tx_size as usize], start.clone()).await
+            send_data_over_stream(&connection, &tx_buffer[0..tx_size as usize], start).await
         {
             transaction_id += 1;
 
@@ -161,12 +161,9 @@ async fn run_endpoint(
     // Sleep to give it some time to deliver all the pending streams.
     sleep(Duration::from_secs(1)).await;
 
-    /*let connection_stats = connection.stats();
-    for stat in stats_collector {
-        print!("{:?}\n", stat);
-    }*/
-    println!("TRANSACTIONS_SENT {}", transaction_id);
-    //info!("Connection stats for task: {connection_stats:?}");
+    let connection_stats = connection.stats();
+    debug!("client connection stats: {:?}", connection_stats);
+    info!("TRANSACTIONS_SENT {}", transaction_id);
     connection.close(0u32.into(), b"done");
 
     // Give the server a fair chance to receive the close packet

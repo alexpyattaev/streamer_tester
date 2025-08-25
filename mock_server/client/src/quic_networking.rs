@@ -4,7 +4,6 @@ use quinn::{
     ClientConfig, Connection, Endpoint, IdleTimeout, TransportConfig,
 };
 use solana_sdk::signature::Keypair;
-use tokio::time::Instant;
 
 use {
     crate::error::QuicClientError,
@@ -102,13 +101,13 @@ impl Controller for NopCongestion {
     }
     fn on_mtu_update(&mut self, _: u16) {}
     fn window(&self) -> u64 {
-        return 10000000;
+        10000000
     }
     fn clone_box(&self) -> Box<(dyn Controller + 'static)> {
         Box::new(Self)
     }
     fn initial_window(&self) -> u64 {
-        return 10000000;
+        10000000
     }
     fn into_any(self: Box<Self>) -> Box<(dyn std::any::Any + 'static)> {
         Box::new(self)

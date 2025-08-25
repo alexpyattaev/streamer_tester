@@ -1,14 +1,7 @@
-use {
-    clap::{crate_description, crate_name, crate_version, Parser},
-    std::net::SocketAddr,
-};
+use {clap::Parser, std::net::SocketAddr};
 
 #[derive(Parser, Debug)]
-#[clap(name = crate_name!(),
-    version = crate_version!(),
-    about = crate_description!(),
-    rename_all = "kebab-case"
-)]
+#[clap(rename_all = "kebab-case")]
 pub struct ServerCliParameters {
     /// Enable stateless retries
     #[clap(long)]
@@ -42,10 +35,6 @@ pub struct ServerCliParameters {
         received so far, while `timestamp_max_seen_ms` is the corresponding timestamp."
     )]
     pub reordering_log_file: Option<String>,
-
-    /// Transactions log to bin u32 (microsecs since thread start)
-    #[clap(long)]
-    pub log: bool,
 }
 
 pub fn build_cli_parameters() -> ServerCliParameters {

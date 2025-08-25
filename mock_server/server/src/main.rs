@@ -1,9 +1,10 @@
+#![allow(clippy::arithmetic_side_effects)]
 //! This example demonstrates quic server for handling incoming transactions.
 //!
 //! Checkout the `README.md` for guidance.
-use shared::stats_collection::{file_bin, StatsCollection, StatsSample};
+use shared::stats_collection::file_bin;
 use std::io::Write;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{channel, Sender};
 use {
     chrono::Utc,
     pem::Pem,
@@ -213,7 +214,6 @@ async fn run(options: ServerCliParameters) -> Result<(), QuicServerError> {
         stream_receive_window_size,
         receive_window_size,
         reordering_log_file,
-        log,
     } = options;
 
     let identity = Keypair::new();
@@ -255,7 +255,7 @@ async fn run(options: ServerCliParameters) -> Result<(), QuicServerError> {
                         .num_accepted_connections
                         .fetch_add(1, Ordering::Relaxed);
                     let connection = conn.await?;
-                    let fut = handle_connection(connection, reordering_log_file.clone(), stats.clone(), token.clone(), timing_sender.clone(), start.clone());
+                    let fut = handle_connection(connection, reordering_log_file.clone(), stats.clone(), token.clone(), timing_sender.clone(), start);
                     tokio::spawn(async move {
                         if let Err(e) = fut.await {
                             error!("connection failed: {reason}", reason = e.to_string())
@@ -272,7 +272,7 @@ async fn run(options: ServerCliParameters) -> Result<(), QuicServerError> {
 }
 
 fn check_connection_limit(endpoint: &Endpoint, connection_limit: Option<usize>) -> bool {
-    connection_limit.map_or(false, |n| endpoint.open_connections() >= n)
+    connection_limit.map_or_else(|| false, |n| endpoint.open_connections() >= n)
 }
 
 struct TxInfo {
@@ -395,7 +395,7 @@ async fn handle_stream_chunk_accumulation(
         //it means that the last chunk has been received, we put all the chunks
         //accumulated to some channel
         if let Some(accum) = packet_accum.take() {
-            handle_packet_bytes(accum, tx_info_sender, &stats).await;
+            handle_packet_bytes(accum, tx_info_sender, stats).await;
         }
         return Ok(true);
     };
@@ -485,12 +485,12 @@ async fn run_reorder_log_service(
         .expect("We should be able to create a file for log");
     // it will flush when the buffer is full, so each 64KB because it is typical sector size.
     let mut writer = BufWriter::with_capacity(64 * 1024, file);
-    let line = format!(
+    let line =
         "timestamp,max_seen_tx_id,timestamp_max_seen_ms,current_tx_id,timestamp_current_ms\n"
-    );
+            .to_string();
     writer.write_all(line.as_bytes()).await.unwrap();
 
-    let _ = tokio::spawn(async move {
+    let fut = tokio::spawn(async move {
         let mut max_seen_tx_info: Option<TxInfo> = None;
         loop {
             let Some(tx_info) = tx_info_receiver.recv().await else {
@@ -518,6 +518,7 @@ async fn run_reorder_log_service(
         }
         writer.flush().await.unwrap();
     });
+    drop(fut.await);
 }
 
 async fn run_report_stats_service(stats: Arc<Stats>, token: CancellationToken) {

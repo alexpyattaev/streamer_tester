@@ -8,10 +8,10 @@ import argparse
 parser = argparse.ArgumentParser(prog='make_stakes',description="Stake identity maker",
                                      )
 parser.add_argument('hosts',type=int, default=5, help='how many to make')
+parser.add_argument('--min-stake', type=int, default=10000, help='min stake in SOL')
+parser.add_argument('--max-stake', type=int, default=10000, help='max stake in SOL')
 args = parser.parse_args()
 # --- Configuration ---
-STAKE_MIN = 10000 # this is in SOL
-STAKE_MAX = 10000000 # this is also in SOL
 
 output_file = Path("solana_pubkeys.txt")
 keypair_dir = Path("solana_keypairs")  # folder to store keypair JSON files
@@ -47,7 +47,7 @@ for i in range(1, args.hosts + 1):
 # --- Write public keys to file ---
 with output_file.open("w") as f:
     for pk in pubkeys:
-        stake = random.randint(STAKE_MIN, STAKE_MAX)
+        stake = random.randint(args.min_stake, args.max_stake)
         f.write(f"{pk} {stake}\n")
 
 print(f"Generated {args.hosts} keypairs. Public keys written to {output_file}")

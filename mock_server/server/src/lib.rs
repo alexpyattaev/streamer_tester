@@ -1,3 +1,4 @@
+#![allow(clippy::arithmetic_side_effects)]
 pub mod cli;
 pub mod format_as_bits;
 pub mod packet_accumulator;
