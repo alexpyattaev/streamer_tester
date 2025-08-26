@@ -142,11 +142,24 @@ async fn run_endpoint(
             tx_size,
         );
 
-        if let Ok(dt) =
-            send_data_over_stream(&connection, &tx_buffer[0..tx_size as usize], start).await
+        match tokio::time::timeout(
+            Duration::from_millis(100),
+            send_data_over_stream(&connection, &tx_buffer[0..tx_size as usize], start),
+        )
+        .await
         {
-            transaction_id += 1;
-            stat_buff.push(dt);
+            Ok(Ok(dt)) => {
+                transaction_id += 1;
+                stat_buff.push(dt);
+            }
+            Ok(Err(e)) => {
+                println!("Quic error {e}");
+                break;
+            }
+            Err(_e) => {
+                println!("TIMEOUT");
+                break;
+            }
         }
     }
 
@@ -156,6 +169,7 @@ async fn run_endpoint(
         }
         writer.flush().unwrap();
     }
+    println!("TERMINATING");
     // When the connection is closed all the streams that haven't been delivered yet will be lost.
     // Sleep to give it some time to deliver all the pending streams.
     sleep(Duration::from_secs(1)).await;
@@ -170,10 +184,13 @@ async fn run_endpoint(
             .write_all(&transaction_id.to_ne_bytes())
             .unwrap();
     }
-    connection.close(0u32.into(), b"done");
 
+    println!("CLOSE CONN1");
+    connection.close(0u32.into(), b"done");
+    println!("CLOSE CONN2");
     // Give the server a fair chance to receive the close packet
     endpoint.wait_idle().await;
+    println!("CLOSED, ENDPOINT RELEASED");
     Ok(stats_collector)
 }
 
