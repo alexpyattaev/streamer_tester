@@ -1,4 +1,7 @@
 #!/bin/bash
+
+set -xeuo pipefail
+
 SRV="ip netns exec server"
 
 echo "Creating a directory for result"
@@ -7,7 +10,9 @@ mkdir -p results
 chmod a+rwx results
 
 echo "Add namespace"
+set +e
 ip netns del server 2>> /dev/null
+set -e
 ip netns add server
 
 

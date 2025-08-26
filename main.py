@@ -26,7 +26,7 @@ class ClientNode():
         cli = f"sudo --preserve-env=RUST_LOG ip netns exec client{self.pubkey[0:8]}"
         args = f"./mock_server/target/release/client --target {self.target_ip}:8000 --duration {duration} --host-name {self.pubkey} --staked-identity-file solana_keypairs/{self.pubkey}.json --num-connections 1 --tx-size {tx_size} --disable-congestion"
         # uncomment for sanity check
-        # args = "ping 10.0.1.1 -c 4"
+        #args = "ping -f -c 1000 -W 2 10.0.1.1"
 
         print(f"running {args}...")
         self.proc = subprocess.Popen(f"{cli} {args}",
@@ -63,7 +63,8 @@ def main():
     client_nodes = []
 
     configs = {"duration":args.duration, "tx-size":args.tx_size}
-    subprocess.run("sudo ./server.sh", shell=True)
+    subprocess.run("./delete_namespaces.sh", shell=True, check=True)
+    subprocess.run("sudo ./server.sh", shell=True, check=True)
     for idx, host_id in enumerate(client_identities, start = 2):
         if args.latency == 0:
             link_delay = link_delays[(idx%len(link_delays)-1)]
@@ -72,7 +73,7 @@ def main():
         configs[host_id] = {"latency":link_delay}
         client_nodes.append(ClientNode(f"10.0.1{idx}",host_id,"10.0.1.1", latency=link_delay))
         time.sleep(0.1) # This is needed to preven linux from going mad
-        subprocess.run(f"sudo ./client.sh {host_id[0:8]} {idx} {link_delay} {args.loss_percentage}",shell=True)
+        subprocess.run(f"sudo ./client.sh {host_id[0:8]} {idx} {link_delay} {args.loss_percentage}",shell=True, check=True)
 
     json.dump(configs, open("results/config.json", "w"))
 
@@ -80,7 +81,7 @@ def main():
     print("Environment is up.\nRunning a server")
     cli = "sudo --preserve-env=RUST_LOG ip netns exec server"
     # args = f"./mock_server/target/debug/server --listen 10.0.1.1:8009 --receive-window-size 630784  --max-concurrent-streams 512 --stream-receive-window-size 1232"
-    cmd = f"./swqos --test-duration {args.duration+1.0} --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000"
+    cmd = f"./swqos --test-duration {args.duration+2.0} --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000"
 
     print(f"Running {cmd}")
     server = subprocess.Popen(f"{cli} {cmd}",
@@ -96,7 +97,7 @@ def main():
         node.run_agave_client(args.duration, args.tx_size)
 
     try:
-        server.wait(timeout=args.duration+2.0)
+        server.wait(timeout=args.duration+3.0)
     except:
         server.kill()
         print("Server killed")

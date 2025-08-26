@@ -8,3 +8,4 @@ echo "All namespaces deleted"
 echo "Killing clients and server"
 killall client
 killall server
+exit 0

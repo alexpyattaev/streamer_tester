@@ -7,7 +7,7 @@ use quinn::ClientConfig;
 use shared::stats_collection::{file_bin, StatsCollection, StatsSample};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 use std::io::Write as _;
-use tracing::debug;
+use tracing::{debug, trace};
 use {
     client::{
         cli::{build_cli_parameters, ClientCliParameters},
@@ -143,7 +143,7 @@ async fn run_endpoint(
         );
 
         match tokio::time::timeout(
-            Duration::from_millis(100),
+            Duration::from_millis(500),
             send_data_over_stream(&connection, &tx_buffer[0..tx_size as usize], start),
         )
         .await
@@ -157,8 +157,7 @@ async fn run_endpoint(
                 break;
             }
             Err(_e) => {
-                println!("TIMEOUT");
-                break;
+                trace!("Timeout sending stream, skipping");
             }
         }
     }
@@ -169,13 +168,12 @@ async fn run_endpoint(
         }
         writer.flush().unwrap();
     }
-    println!("TERMINATING");
     // When the connection is closed all the streams that haven't been delivered yet will be lost.
     // Sleep to give it some time to deliver all the pending streams.
     sleep(Duration::from_secs(1)).await;
 
     let connection_stats = connection.stats();
-    debug!("client connection stats: {:?}", connection_stats);
+    info!("client connection stats: {:?}", connection_stats);
     info!("TRANSACTIONS_SENT {}", transaction_id);
     if let Some(host_name) = host_name {
         let mut num_sent_file =
@@ -185,12 +183,9 @@ async fn run_endpoint(
             .unwrap();
     }
 
-    println!("CLOSE CONN1");
     connection.close(0u32.into(), b"done");
-    println!("CLOSE CONN2");
     // Give the server a fair chance to receive the close packet
     endpoint.wait_idle().await;
-    println!("CLOSED, ENDPOINT RELEASED");
     Ok(stats_collector)
 }
 
