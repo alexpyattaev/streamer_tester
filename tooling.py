@@ -93,7 +93,7 @@ class CRDS_Node:
             msg = json.dumps(msg)
         try:
             self.stdin.write(msg + "\n")
-        except Exception as e:
+        except Exception:
             print("Can not send, process is dead")
             return []
         if poll:
