@@ -29,6 +29,11 @@ class ClientNode():
         #args = "ping -f -c 1000 -W 2 10.0.1.1"
 
         print(f"running {args}...")
+        # self.tcpdump = subprocess.Popen(f"{cli} tcpdump -i veth_cli-2 -w capture_client.pcap",
+        #                         shell=True, text=True,
+        #                         stdout=subprocess.PIPE,
+        #                         stderr=subprocess.PIPE,
+        #                         )
         self.proc = subprocess.Popen(f"{cli} {args}",
                                 shell=True, text=True,
                                 stdout=subprocess.PIPE,
@@ -40,6 +45,9 @@ class ClientNode():
         print(self.proc.stdout.read(), end="") # pyright:ignore
         print(self.proc.stderr.read(), end="") # pyright:ignore
         self.proc.wait()
+        # self.tcpdump.terminate()
+        # print("Waiting on tcpdump")
+        # self.tcpdump.wait()
         print("======")
 
 def main():
@@ -77,12 +85,16 @@ def main():
 
     json.dump(configs, open("results/config.json", "w"))
 
-
     print("Environment is up.\nRunning a server")
     cli = "sudo --preserve-env=RUST_LOG ip netns exec server"
     # args = f"./mock_server/target/debug/server --listen 10.0.1.1:8009 --receive-window-size 630784  --max-concurrent-streams 512 --stream-receive-window-size 1232"
     cmd = f"./swqos --test-duration {args.duration+2.0} --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000"
 
+    # srv_tcpdump = subprocess.Popen(f"{cli} tcpdump -i srv-br -w capture_server.pcap",
+    #                        shell=True, text=True,
+    #                        stdout=subprocess.PIPE,
+    #                        stderr=subprocess.PIPE,
+    #                        )
     print(f"Running {cmd}")
     server = subprocess.Popen(f"{cli} {cmd}",
         shell=True, text=True,
@@ -90,7 +102,7 @@ def main():
         stderr=sys.stdout,
         env = os.environ.copy(),
         bufsize=1
-   )
+    )
 
     for node in client_nodes:
         time.sleep(0.01)
@@ -107,6 +119,9 @@ def main():
     for node in client_nodes:
         node.wait()
 
+    # srv_tcpdump.terminate()
+    # print("Waiting on server tcpdump")
+    # srv_tcpdump.wait()
     subprocess.run("sudo chmod a+rw -R ./results/", shell=True, text=True, check=True)
 
 if __name__ == '__main__':
