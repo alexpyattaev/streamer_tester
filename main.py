@@ -21,7 +21,7 @@ class ClientNode():
         self.host = host
 
     def run_agave_client(self, target:str, duration:float, tx_size:int):
-        args = f"./mock_server/target/release/client --target {target} --duration {duration} --host-name {self.pubkey} --staked-identity-file solana_keypairs/{self.pubkey}.json --num-connections 1 --tx-size {tx_size}"
+        args = f"./mock_server/target/release/client --target {target} --duration {duration} --host-name {self.pubkey} --staked-identity-file solana_keypairs/{self.pubkey}.json --num-connections 1 --tx-size {tx_size} --disable-congestion"
 
         print(f"running {args}...")
         # self.tcpdump = subprocess.Popen(f"{cli} tcpdump -i veth_cli-2 -w capture_client.pcap",

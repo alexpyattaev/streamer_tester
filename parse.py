@@ -20,7 +20,6 @@ def main():
     stakes = [ l.split(' ') for l in open("solana_pubkeys.txt").readlines()]
     stakes = {b58decode(a):b for a,b in stakes}
 
-
     print(f"Server captured {len(data)} transactions ({int(len(data)/duration)} TPS)")
 
     per_client = {}
