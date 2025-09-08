@@ -116,7 +116,7 @@ def topology(client_identities, args):
     switch = net.addSwitch('s1')
     _ = net.addController('c0')
     server = net.addHost('server')
-    net.addLink(server, switch, delay='1ms', bw=1000)   # server side (fast)
+    net.addLink(server, switch, delay='1ms', bw=1000, limit=2000000)   # server side (fast)
     client_nodes = []
     print("*** Creating clients")
 
@@ -124,7 +124,7 @@ def topology(client_identities, args):
         host = net.addHost(f'client{idx}')
         link_delay = args.latency
         configs[host_id] = {"latency":link_delay}
-        net.addLink(host, switch, delay=f'{link_delay}ms', bw=10000, limit=2000000)
+        net.addLink(host, switch, delay=f'{link_delay}ms', bw=1000, limit=2000000)
         client_nodes.append(ClientNode(pubkey=host_id, latency=link_delay, host=host))
 
 

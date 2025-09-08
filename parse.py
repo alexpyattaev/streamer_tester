@@ -4,6 +4,7 @@ from base58 import b58encode, b58decode
 import os
 import pprint
 import json
+import re
 
 def main():
     config = json.load(open("results/config.json"))
@@ -17,8 +18,10 @@ def main():
     ])
 
     data = np.fromfile("results/serverlog.bin", dtype=record_dtype)
-    stakes = [ l.split(' ') for l in open("solana_pubkeys.txt").readlines()]
-    stakes = {b58decode(a):b for a,b in stakes}
+    stakes = [ re.split(r'[\s]+', l.strip()) for l in open("solana_pubkeys.txt").readlines()]
+    for v in stakes:
+        print(v)
+    stakes = {b58decode(a):int(b) for a,b in stakes}
 
     print(f"Server captured {len(data)} transactions ({int(len(data)/duration)} TPS)")
 
@@ -28,11 +31,17 @@ def main():
             num = np.fromfile(f"./results/{file}", dtype=np.uint64)
             per_client[file.split(".")[0]]= num[0]
 
+    datapoints = open("datapoints.csv","a")
     for id in stakes:
         b58_id = b58encode(id).decode('ascii')
         sent = per_client[b58_id]
         got = (data['id'] == id).sum()
         print(f"{b58_id}: {sent=} {got=} lost {int(sent - got)} ({int(got/duration)} TPS)")
+        if sent-got != 0:
+            raise RuntimeError()
+        datapoints.write(f"{config[b58_id]['latency']} {stakes[id]} {got/duration}\n")
+    datapoints.close()
+
 
 if __name__ == '__main__':
     main()
