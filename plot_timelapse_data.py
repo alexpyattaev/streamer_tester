@@ -24,8 +24,11 @@ def main():
 
     csv_data = pd.DataFrame(columns=csv_columns)
     binary_data = pd.DataFrame(columns=binary_columns)
+
     tx_volume = {}
     tps_rcv = {}
+    stakes = {}
+
     # Processing csv files
     for csv_file in csv_files:
         host = csv_file.split('-')[0]
@@ -60,14 +63,14 @@ def main():
 
     color_cycle_csv = cycle(plt.cm.tab10.colors)
     color_cycle_binary = cycle(plt.cm.Set2.colors)
-    color_cycle_stake = cycle(plt.cm.Set2.colors)
+    color_cycle_stake = cycle(plt.cm.tab20.colors)
     fig, (ax1, ax2, ax3) = plt.subplots(3,1,figsize=(12, 12))
 
     for host in csv_data["host"].unique():
         host_csv_data = csv_data[csv_data["host"] == host]
         color = next(color_cycle_csv)
-        ax1.plot(host_csv_data["time_stamp"] / 1_000_000, host_csv_data["udp_tx"], label=f"{host}-udp_tx", linestyle='-', color=color)
-        ax1.plot(host_csv_data["time_stamp"] / 1_000_000, host_csv_data["udp_rx"], label=f"{host}-udp_rx", linestyle='--', color=color)
+        ax1.plot(host_csv_data["time_stamp"] / 1_000_000, host_csv_data["udp_tx"], label=f"{host[0:7]}-udp_tx", linestyle='-', color=color)
+        ax1.plot(host_csv_data["time_stamp"] / 1_000_000, host_csv_data["udp_rx"], label=f"{host[0:7]}-udp_rx", linestyle='--', color=color)
 
     ax1.set_xlabel("Time (seconds)")
     ax1.set_ylabel("Bytes")
@@ -77,40 +80,48 @@ def main():
     for host in binary_data["host"].unique():
         host_binary_data = binary_data[binary_data["host"] == host]
         color = next(color_cycle_binary)
-        ax2.plot(host_binary_data["timeline"], host_binary_data["TPS"], label=f"{host}-TPS", linestyle='-', color=color)
+        ax2.plot(host_binary_data["timeline"], host_binary_data["TPS"], label=f"{host[0:7]}", linestyle='-', color=color)
 
     ax2.set_ylabel("Transactions per Second")
     ax2.legend(loc="upper right")
 
-    stakes = {}
     with open("solana_pubkeys.txt") as f:
         for line in f:
-            print(line)
             stakes[line.split(' ')[0]] = int(line.split(' ')[1])
 
+    #Normalizing values for bars
+    transactions_sum = sum(tps_rcv.values())
+    for k,v in tps_rcv.items():
+        tps_rcv[k]=v/transactions_sum * 100
 
-    bottom = 0
-    i = 0
+    tx_sum = sum(tx_volume.values())
+    for k,v in tx_volume.items():
+        tx_volume[k]=v/tx_sum * 100
+
+    stake_sum = sum(stakes.values())
+    for k,v in stakes.items():
+        stakes[k]=v/stake_sum * 100
+
+
     for host in stakes.keys():
-        print(f"Host:{host}\nStake:{stakes[host]}Volume:{tx_volume[host]}\nTransactions:{[tps_rcv[host]]}")
+        print(f"Host:{host}\nStake:{stakes[host]:.1f}%\nVolume:{tx_volume[host]:.1f}%\nTransactions:{[tps_rcv[host]][0]:.1f}%\n")
 
-    print(f"stake values:{stakes.values()}\ntps_rcv.values():{tps_rcv.values()}")
-    for host,val in stakes.items():
-        ax3.bar("Stakes",val, bottom=bottom, color=next(color_cycle_stake), label = host)
-        bottom += val
+    stakes_bottom = 0
+    volume_bottom = 0
+    tps_bottom = 0
+    for host in stakes.keys():
+        color = next(color_cycle_stake)
+        ax3.bar("Stakes",stakes[host], bottom=stakes_bottom, color=color, label = host)
+        ax3.bar("Transactions",tps_rcv[host], bottom=tps_bottom, color=color, label = host)
+        ax3.bar("Traffic volume",tx_volume[host], bottom=volume_bottom, color=color, label = host)
+        tps_bottom += tps_rcv[host]
+        volume_bottom += tx_volume[host]
+        stakes_bottom += stakes[host]
 
-    for host,val in tps_rcv.items():
-        ax3.bar("Transactions",val, bottom=bottom, color=next(color_cycle_stake), label = host)
-        bottom += val
-
-    for host,val in tx_volume.items():
-        ax3.bar("Volume_TX",val, bottom=bottom, color=next(color_cycle_stake), label = host)
-        bottom += val
-    ax3.set_ylabel("Stake analysis")
+    ax3.set_ylabel("SWQOS analysis")
 
     plt.title("Transmission, Reception, TPS")
     plt.savefig("TPS.png")
-    plt.show()
 
 if __name__ == "__main__":
     main()

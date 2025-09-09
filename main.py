@@ -56,6 +56,12 @@ def main():
 
     args = parser.parse_args()
 
+    if not os.path.exists("results"):
+        os.mkdir("results")
+    else:
+        subprocess.run("rm results/*", shell=True)
+
+
     if args.loss_percentage not in range(0,100):
         print("run ./sosim -h'")
         exit()
