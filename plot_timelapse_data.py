@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from re import L
 import matplotlib.pyplot as plt
 import csv
 import numpy as np
@@ -23,12 +24,14 @@ def main():
 
     csv_data = pd.DataFrame(columns=csv_columns)
     binary_data = pd.DataFrame(columns=binary_columns)
-
+    tx_volume = {}
+    tps_rcv = {}
     # Processing csv files
     for csv_file in csv_files:
         host = csv_file.split('-')[0]
         df = pd.read_csv(os.path.join("results", csv_file))
         df['host'] = host
+        tx_volume[host] = df["udp_tx"].iloc[-1]
         csv_data = pd.concat([csv_data, df], ignore_index=True)
 
     # Processing binary files
@@ -51,12 +54,14 @@ def main():
             "timeline": edges[0:-1],
             "TPS": transactions_per_second
         })
+        if not "server" in binary_file:
+            tps_rcv[host] = df["TPS"].sum().astype(int)
         binary_data = pd.concat([binary_data, df], ignore_index=True)
 
     color_cycle_csv = cycle(plt.cm.tab10.colors)
     color_cycle_binary = cycle(plt.cm.Set2.colors)
-
-    fig, (ax1, ax2) = plt.subplots(2,1,figsize=(12, 12))
+    color_cycle_stake = cycle(plt.cm.Set2.colors)
+    fig, (ax1, ax2, ax3) = plt.subplots(3,1,figsize=(12, 12))
 
     for host in csv_data["host"].unique():
         host_csv_data = csv_data[csv_data["host"] == host]
@@ -77,8 +82,35 @@ def main():
     ax2.set_ylabel("Transactions per Second")
     ax2.legend(loc="upper right")
 
+    stakes = {}
+    with open("solana_pubkeys.txt") as f:
+        for line in f:
+            print(line)
+            stakes[line.split(' ')[0]] = int(line.split(' ')[1])
+
+
+    bottom = 0
+    i = 0
+    for host in stakes.keys():
+        print(f"Host:{host}\nStake:{stakes[host]}Volume:{tx_volume[host]}\nTransactions:{[tps_rcv[host]]}")
+
+    print(f"stake values:{stakes.values()}\ntps_rcv.values():{tps_rcv.values()}")
+    for host,val in stakes.items():
+        ax3.bar("Stakes",val, bottom=bottom, color=next(color_cycle_stake), label = host)
+        bottom += val
+
+    for host,val in tps_rcv.items():
+        ax3.bar("Transactions",val, bottom=bottom, color=next(color_cycle_stake), label = host)
+        bottom += val
+
+    for host,val in tx_volume.items():
+        ax3.bar("Volume_TX",val, bottom=bottom, color=next(color_cycle_stake), label = host)
+        bottom += val
+    ax3.set_ylabel("Stake analysis")
+
     plt.title("Transmission, Reception, TPS")
     plt.savefig("TPS.png")
+    plt.show()
 
 if __name__ == "__main__":
     main()
