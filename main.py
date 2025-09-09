@@ -87,10 +87,10 @@ def main():
     )
 
     for node in client_nodes:
-        node.run_agave_client(target =server_node.IP()+":8000", duration=  args.duration, tx_size=args.tx_size)
+        node.run_agave_client(target =server_node.IP()+":8000", duration=args.duration, tx_size=args.tx_size)
 
     try:
-        server.wait(timeout=args.duration+3.0)
+        server.wait(timeout=args.duration+10.0)
     except:
         server.kill()
         print("Server killed")
@@ -121,10 +121,12 @@ def topology(client_identities, args):
     print("*** Creating clients")
 
     for idx, host_id in enumerate(client_identities, start = 2):
-        host = net.addHost(f'client{idx}')
+        host = net.addHost(f'client')
         link_delay = args.latency
-        configs[host_id] = {"latency":link_delay}
         net.addLink(host, switch, delay=f'{link_delay}ms', bw=1000, limit=2000000)
+        configs[host_id] = {"latency":link_delay}
+        client_nodes.append(ClientNode(pubkey=host_id, latency=link_delay, host=host))
+        client_nodes.append(ClientNode(pubkey=host_id, latency=link_delay, host=host))
         client_nodes.append(ClientNode(pubkey=host_id, latency=link_delay, host=host))
 
 
