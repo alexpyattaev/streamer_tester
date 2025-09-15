@@ -47,7 +47,7 @@ for i in range(1, args.hosts + 1):
 # --- Write public keys to file ---
 with output_file.open("w") as f:
     for i, pk in enumerate(pubkeys):
-        stake = args.min_stake + i * (args.max_stake - args.min_stake) / len(pubkeys) 
+        stake = int(args.min_stake + i * (args.max_stake - args.min_stake) / len(pubkeys))
         #stake = random.randint(args.min_stake, args.max_stake)
         f.write(f"{pk} {stake}\n")
 

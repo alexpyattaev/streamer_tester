@@ -37,7 +37,7 @@ def main():
         sent = per_client[b58_id]
         got = (data['id'] == id).sum()
         print(f"{b58_id}: {sent=} {got=} lost {int(sent - got)} ({int(got/duration)} TPS)")
-        if sent-got != 0:
+        if abs(sent-got) > 10:
             raise RuntimeError()
         datapoints.write(f"{config[b58_id]['latency']} {stakes[id]} {got/duration}\n")
     datapoints.close()

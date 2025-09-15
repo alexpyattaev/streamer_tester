@@ -1,34 +1,38 @@
-T='sudo ./main.py solana_pubkeys.txt  --duration=3.0'
-N=5
-rm -f datapoints.csv
-TX_SZ=176
-./make_stakes.py --min-stake=0 --max-stake=0  $N
-$T --latency=5 --tx-size $TX_SZ
-$T --latency=50 --tx-size $TX_SZ
-$T --latency=100 --tx-size $TX_SZ
-$T --latency=150 --tx-size $TX_SZ
-$T --latency=200 --tx-size $TX_SZ
-./make_stakes.py --min-stake=10000 --max-stake=10000 $N
-$T --latency=5 --tx-size $TX_SZ
-$T --latency=50 --tx-size $TX_SZ
-$T --latency=100 --tx-size $TX_SZ
-$T --latency=150 --tx-size $TX_SZ
-$T --latency=200 --tx-size $TX_SZ
-python plot.py $TX_SZ bytes
-rm -f datapoints.csv
+#!/bin/bash
+set -x -e
 
-TX_SZ=1024
-./make_stakes.py --min-stake=0 --max-stake=0 $N
-$T --latency=5 --tx-size $TX_SZ
-$T --latency=50 --tx-size $TX_SZ
-$T --latency=100 --tx-size $TX_SZ
-$T --latency=150 --tx-size $TX_SZ
-$T --latency=200 --tx-size $TX_SZ
-./make_stakes.py --min-stake=10000 --max-stake=10000 $N
-$T --latency=5 --tx-size $TX_SZ
-$T --latency=50 --tx-size $TX_SZ
-$T --latency=100 --tx-size $TX_SZ
-$T --latency=150 --tx-size $TX_SZ
-$T --latency=200 --tx-size $TX_SZ
-python plot.py $TX_SZ bytes
-rm -f datapoints.csv
+
+T="sudo ./main.py solana_pubkeys.txt --duration=3.0 --server=./swqos"
+N=5
+
+make_and_run() {
+    local tx_sz=$1
+    shift
+    local prefix=$1
+    shift
+    rm -f datapoints.csv
+    ./make_stakes.py --min-stake=0 --max-stake=10000 "$N"
+
+    for lat in "$@"; do
+        $T --latency="$lat" --tx-size="$tx_sz"
+    done
+
+    python plot_3d.py $prefix "$tx_sz" bytes
+    rm -f datapoints.csv
+}
+
+# configure what latencies to test
+LATS=(5 50 100)
+
+# run for different transaction sizes
+make_and_run 176 new "${LATS[@]}"
+make_and_run 512 new "${LATS[@]}"
+make_and_run 1024 new "${LATS[@]}"
+
+
+T='sudo ./main.py solana_pubkeys.txt  --duration=3.0 --server=./swqos_current'
+
+# run for different transaction sizes
+make_and_run 176 old "${LATS[@]}"
+make_and_run 512 old "${LATS[@]}"
+make_and_run 1024 old "${LATS[@]}"

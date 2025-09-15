@@ -53,6 +53,7 @@ def main():
     parser.add_argument('--duration',type=float,help='how long to run the test for',default=3.0)
     parser.add_argument('--latency',type=int,help='override latency',default=50)
     parser.add_argument('--tx-size',type=int,help='Transaction size',default=1000)
+    parser.add_argument('--server',type=str,help='Server binary path',default="./swqos")
 
     args = parser.parse_args()
 
@@ -76,7 +77,7 @@ def main():
 
     print("Environment is up.\nRunning a server")
 
-    cmd = f"./swqos --test-duration {args.duration+2.0} --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000"
+    cmd = f"{args.server} --test-duration {args.duration+10.0} --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000"
 
     # srv_tcpdump = subprocess.Popen(f"{cli} tcpdump -i srv-br -w capture_server.pcap",
     #                        shell=True, text=True,
@@ -96,7 +97,7 @@ def main():
         node.run_agave_client(target =server_node.IP()+":8000", duration=args.duration, tx_size=args.tx_size)
 
     try:
-        server.wait(timeout=args.duration+10.0)
+        server.wait(timeout=args.duration+20.0)
     except:
         server.kill()
         print("Server killed")
@@ -131,8 +132,6 @@ def topology(client_identities, args):
         link_delay = args.latency
         net.addLink(host, switch, delay=f'{link_delay}ms', bw=1000, limit=2000000)
         configs[host_id] = {"latency":link_delay}
-        client_nodes.append(ClientNode(pubkey=host_id, latency=link_delay, host=host))
-        client_nodes.append(ClientNode(pubkey=host_id, latency=link_delay, host=host))
         client_nodes.append(ClientNode(pubkey=host_id, latency=link_delay, host=host))
 
 
