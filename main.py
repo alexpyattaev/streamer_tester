@@ -21,7 +21,7 @@ class ClientNode():
         self.host = host
 
     def run_agave_client(self, target:str, duration:float, tx_size:int):
-        args = f"./mock_server/target/release/client --target {target} --duration {duration} --host-name {self.pubkey} --staked-identity-file solana_keypairs/{self.pubkey}.json --num-connections 1 --tx-size {tx_size} --disable-congestion"
+        args = f"./mock_server/target/release/client --target {target} --duration {duration} --host-name {self.pubkey} --staked-identity-file solana_keypairs/{self.pubkey}.json --num-connections 1 --tx-size {tx_size} --disable-congestion --latency {self.latency}"
 
         print(f"running {args}...")
         # self.tcpdump = subprocess.Popen(f"{cli} tcpdump -i veth_cli-2 -w capture_client.pcap",
@@ -50,18 +50,12 @@ def main():
                                      epilog="If you encounter some bug, I wish you a luck ©No-Manuel Macros")
     parser.add_argument('hosts',type=str, help='file with staked accounts')
     parser.add_argument('--loss-percentage',type=int, default=0, help='0-100 allowed')
-    parser.add_argument('--duration',type=float,help='how long to run the test for',default=3.0)
+    parser.add_argument('--duration',type=float,help='how long to run the test for',default=3.2)
     parser.add_argument('--latency',type=int,help='override latency',default=50)
     parser.add_argument('--tx-size',type=int,help='Transaction size',default=1000)
     parser.add_argument('--server',type=str,help='Server binary path',default="./swqos")
 
     args = parser.parse_args()
-
-    if not os.path.exists("results"):
-        os.mkdir("results")
-    else:
-        subprocess.run("rm results/*", shell=True)
-
 
     if args.loss_percentage not in range(0,100):
         print("run ./sosim -h'")
@@ -154,5 +148,5 @@ if __name__ == '__main__':
         call(["sudo", "mn", "-c"])
         main()
 
-    import parse
-    parse.main()
+    #import parse
+    #parse.main()

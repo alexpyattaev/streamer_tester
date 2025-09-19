@@ -1,6 +1,6 @@
 /results
 perm.sh
-TPS.png
+*.png
 /__pycache__
 /agave
 /solana_keypairs

@@ -65,12 +65,13 @@ async fn run(parameters: ClientCliParameters) -> Result<(), QuicClientError> {
         parameters.clone(),
         identity.pubkey(),
         parameters.host_name.clone().as_ref(),
+        parameters.latency.clone(),
     )
     .await;
     match result {
         Ok(collection) => {
             if let Some(host_name) = parameters.host_name.clone() {
-                collection.write_csv(host_name);
+                collection.write_csv(host_name, parameters.latency.unwrap());
             }
         }
         Err(e) => println!("{e}"),
@@ -93,6 +94,7 @@ async fn run_endpoint(
     }: ClientCliParameters,
     identity: Pubkey,
     host_name: Option<&String>,
+    latency: Option<usize>,
 ) -> Result<StatsCollection, QuicClientError> {
     let endpoint =
         create_client_endpoint(bind, client_config).expect("Endpoint creation should not fail.");
@@ -103,7 +105,7 @@ async fn run_endpoint(
     let mut stats_dt: u64;
 
     let mut file_binary_log = if let Some(host_name) = host_name {
-        file_bin(host_name.into())
+        file_bin(host_name.into(), latency)
     } else {
         None
     };

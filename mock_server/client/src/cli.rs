@@ -56,6 +56,9 @@ pub struct ClientCliParameters {
 
     #[clap(long, help = "Client's host name")]
     pub host_name: Option<String>,
+
+    #[clap(long, help = "Link's latency(used for simulations)")]
+    pub latency: Option<usize>,
 }
 
 fn parse_duration(s: &str) -> Result<Duration, &'static str> {
