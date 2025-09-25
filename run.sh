@@ -2,7 +2,7 @@
 set -x -e
 
 
-T="sudo ./main.py solana_pubkeys.txt --duration=3.2 --server=./swqos"
+T="sudo ./main.py solana_pubkeys.txt --duration=3.2 --server=./swqos --clients_per_node 2"
 N=5
 
 if [ -d "results" ]; then
@@ -22,7 +22,7 @@ make_and_run() {
 
     for lat in "$@"; do
         $T --latency="$lat" --tx-size="$tx_sz"
-        mv results/serverlog.bin results/serverlog"$x"-"$lat"ms.bin
+        mv results/serverlog.bin results/serverlog-"$lat"ms.bin
         sleep 1
         x=$((x+1))
     done
