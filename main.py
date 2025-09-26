@@ -15,17 +15,23 @@ import os
 
 
 class ClientNode:
-    def __init__(self, pubkey: str, latency: int, host):
+    def __init__(self, pubkey: str, latency: int, host, ip_pool):
         self.pubkey = pubkey
         self.latency = latency
         self.host = host
         self.procs = []
+        self.ip_pool = ip_pool
+
+    def add_ips(self):
+        iface = self.host.defaultIntf()
+        for ip in self.ip_pool[1:]:
+            self.host.cmd(f"ip addr add {ip}/8 dev {iface}")
 
     def run_agave_client(
         self, target: str, duration: float, tx_size: int, clients: int, bind_ip: str
     ):
-        for sock in range(0, clients):
-            args = f"./mock_server/target/release/client --target {target} --duration {duration} --host-name {self.pubkey}-{sock} --staked-identity-file solana_keypairs/{self.pubkey}.json --num-connections 1 --tx-size {tx_size} --disable-congestion --latency {self.latency} --bind {bind_ip}:{50_000 + sock}"
+        for id in range(0, clients):
+            args = f"RUST_BACKTRACE=1 ./mock_server/target/release/client --target {target} --duration {duration} --host-name {self.pubkey}-{id} --staked-identity-file solana_keypairs/{self.pubkey}.json --num-connections 1 --tx-size {tx_size} --disable-congestion --latency {self.latency} --bind {self.ip_pool[id]}:{50_000 + id} "
 
             print(f"running {args}...")
             # self.tcpdump = subprocess.Popen(f"{cli} tcpdump -i veth_cli-2 -w capture_client.pcap",
@@ -33,12 +39,14 @@ class ClientNode:
             #                         stdout=subprocess.PIPE,
             #                         stderr=subprocess.PIPE,
             #                         )
+            out = self.host.cmd("ip a l")
+            print(self.ip_pool, out)
             proc = self.host.popen(
                 f"{args}",
                 shell=True,
                 text=True,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                # stderr=subprocess.PIPE,
             )
             self.procs.append(proc)
 
@@ -108,6 +116,9 @@ def main():
     )
 
     for node in client_nodes:
+        node.add_ips()
+
+    for node in client_nodes:
         node.run_agave_client(
             target=server_node.IP() + ":8000",
             duration=args.duration,
@@ -139,6 +150,9 @@ def main():
 
 
 def topology(client_identities, args):
+    shift = args.clients_per_node - 1
+    clients_amount = len(client_identities)
+    netmask = "10.0.0."
     configs = {"duration": args.duration, "tx-size": args.tx_size}
     net = Mininet(controller=OVSController, link=TCLink)
     switch = net.addSwitch("s1")
@@ -155,14 +169,21 @@ def topology(client_identities, args):
         link_delay = args.latency
         net.addLink(host, switch, delay=f"{link_delay}ms", bw=1000, limit=2000000)
         configs[host_id] = {"latency": link_delay}
-        client_nodes.append(ClientNode(pubkey=host_id, latency=link_delay, host=host))
+        ip_pool = [f"{netmask}{idx}"]
+        for x in range(1, args.clients_per_node):
+            index = clients_amount + shift * (idx - 2) + x + 1
+            ip = f"{netmask}{index}"
+            ip_pool.append(ip)
+        client_nodes.append(
+            ClientNode(pubkey=host_id, latency=link_delay, host=host, ip_pool=ip_pool)
+        )
 
     print("*** Starting network")
     net.start()
 
     print(f"Server IP is {server.IP()}")
     for client in client_nodes:
-        print(client.host.IP())
+        print(client.ip_pool)
 
     print("*** Testing connectivity")
     # net.pingAll()

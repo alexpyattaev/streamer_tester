@@ -45,8 +45,7 @@ def main():
                         cmd = f"cat {path}{file} >> {path}{id}-{lat}.{data_type}"
                     print(cmd)
                     subprocess.run(cmd, shell=True, text=True)
-                    # time.sleep(0.3)
-                    # subprocess.run(f"rm {path}{file}", shell=True, text=True)
+                    subprocess.run(f"rm {path}{file}", shell=True, text=True)
 
 
 if __name__ == "__main__":
