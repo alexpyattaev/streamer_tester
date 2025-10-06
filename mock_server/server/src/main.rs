@@ -186,10 +186,12 @@ impl Stats {
 async fn run(options: ServerCliParameters) -> Result<(), QuicServerError> {
     let (timing_sender, timing_receiver) = channel::<u32>();
     std::thread::spawn(move || {
-        let mut file = file_bin("Server".into(), options.latency.clone()).unwrap();
+        if let Some(file_name) = options.out_file {
+            let mut file = file_bin(file_name).unwrap();
 
-        while let Ok(timestamp) = timing_receiver.recv() {
-            file.write_all(&timestamp.to_ne_bytes()).unwrap();
+            while let Ok(timestamp) = timing_receiver.recv() {
+                file.write_all(&timestamp.to_ne_bytes()).unwrap();
+            }
         }
     });
 
@@ -214,7 +216,7 @@ async fn run(options: ServerCliParameters) -> Result<(), QuicServerError> {
         stream_receive_window_size,
         receive_window_size,
         reordering_log_file,
-        latency: _,
+        out_file: _,
     } = options;
 
     let identity = Keypair::new();

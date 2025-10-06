@@ -31,7 +31,7 @@ class ClientNode:
         self, target: str, duration: float, tx_size: int, clients: int, bind_ip: str
     ):
         for id in range(0, clients):
-            args = f"RUST_BACKTRACE=1 ./mock_server/target/release/client --target {target} --duration {duration} --host-name {self.pubkey}-{id} --staked-identity-file solana_keypairs/{self.pubkey}.json --num-connections 1 --tx-size {tx_size} --disable-congestion --latency {self.latency} --bind {self.ip_pool[id]}:{50_000 + id} "
+            args = f"RUST_BACKTRACE=1 ./mock_server/target/release/client --target {target} --duration {duration} --out-file {self.pubkey}-{id}-{self.latency}ms --staked-identity-file solana_keypairs/{self.pubkey}.json --num-connections 1 --tx-size {tx_size} --disable-congestion --bind {self.ip_pool[id]}:{50_000 + id} "
 
             print(f"running {args}...")
             # self.tcpdump = subprocess.Popen(f"{cli} tcpdump -i veth_cli-2 -w capture_client.pcap",
@@ -40,7 +40,7 @@ class ClientNode:
             #                         stderr=subprocess.PIPE,
             #                         )
             out = self.host.cmd("ip a l")
-            print(self.ip_pool, out)
+
             proc = self.host.popen(
                 f"{args}",
                 shell=True,
@@ -97,7 +97,7 @@ def main():
 
     print("Environment is up.\nRunning a server")
 
-    cmd = f"{args.server} --test-duration {args.duration + 10.0} --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000"
+    cmd = f"{args.server} --test-duration {args.duration + 2.00} --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000"
 
     # srv_tcpdump = subprocess.Popen(f"{cli} tcpdump -i srv-br -w capture_server.pcap",
     #                        shell=True, text=True,
@@ -128,7 +128,7 @@ def main():
         )
 
     try:
-        server.wait(timeout=args.duration + 20.0)
+        server.wait(timeout=args.duration + 2.0)
     except:
         server.kill()
         print("Server killed")

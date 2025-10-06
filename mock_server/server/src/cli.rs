@@ -35,7 +35,9 @@ pub struct ServerCliParameters {
         received so far, while `timestamp_max_seen_ms` is the corresponding timestamp."
     )]
     pub reordering_log_file: Option<String>,
-    pub latency: Option<usize>,
+
+    #[clap(long, help = "Output file's name")]
+    pub out_file: Option<String>,
 }
 
 pub fn build_cli_parameters() -> ServerCliParameters {

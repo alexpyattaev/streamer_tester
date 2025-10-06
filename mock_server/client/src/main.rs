@@ -64,14 +64,13 @@ async fn run(parameters: ClientCliParameters) -> Result<(), QuicClientError> {
         client_config,
         parameters.clone(),
         identity.pubkey(),
-        parameters.host_name.clone().as_ref(),
-        parameters.latency.clone(),
+        parameters.out_file.clone().as_ref(),
     )
     .await;
     match result {
         Ok(collection) => {
-            if let Some(host_name) = parameters.host_name.clone() {
-                collection.write_csv(host_name, parameters.latency.unwrap());
+            if let Some(out_file) = parameters.out_file.clone() {
+                collection.write_csv(out_file);
             }
         }
         Err(e) => println!("{e}"),
@@ -93,8 +92,7 @@ async fn run_endpoint(
         ..
     }: ClientCliParameters,
     identity: Pubkey,
-    host_name: Option<&String>,
-    latency: Option<usize>,
+    out_file: Option<&String>,
 ) -> Result<StatsCollection, QuicClientError> {
     let endpoint =
         create_client_endpoint(bind, client_config).expect("Endpoint creation should not fail.");
@@ -104,8 +102,8 @@ async fn run_endpoint(
     let mut stats_collector: StatsCollection = StatsCollection::new();
     let mut stats_dt: u64;
 
-    let mut file_binary_log = if let Some(host_name) = host_name {
-        file_bin(host_name.into(), latency)
+    let mut file_binary_log = if let Some(out_file) = out_file {
+        file_bin(out_file.into())
     } else {
         None
     };
@@ -182,9 +180,9 @@ async fn run_endpoint(
     let connection_stats = connection.stats();
     info!("client connection stats: {:?}", connection_stats);
     info!("TRANSACTIONS_SENT {}", transaction_id);
-    if let Some(host_name) = host_name {
+    if let Some(out_file) = out_file {
         let mut num_sent_file =
-            std::fs::File::create(format!("results/{}.summary", host_name)).unwrap();
+            std::fs::File::create(format!("results/{}.summary", out_file)).unwrap();
         num_sent_file
             .write_all(&transaction_id.to_ne_bytes())
             .unwrap();

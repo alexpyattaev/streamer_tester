@@ -54,11 +54,8 @@ pub struct ClientCliParameters {
     #[clap(long, help = "Disable congestion control")]
     pub disable_congestion: bool,
 
-    #[clap(long, help = "Client's host name")]
-    pub host_name: Option<String>,
-
-    #[clap(long, help = "Link's latency(used for simulations)")]
-    pub latency: Option<usize>,
+    #[clap(long, help = "Output file's name")]
+    pub out_file: Option<String>,
 }
 
 fn parse_duration(s: &str) -> Result<Duration, &'static str> {

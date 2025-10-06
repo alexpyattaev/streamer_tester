@@ -28,8 +28,8 @@ impl StatsCollection {
         self.0.push(sample);
     }
 
-    pub fn write_csv(&self, host: String, latency: usize) {
-        let file_name = format!("{}-host-netstats-{}ms.csv", host, latency);
+    pub fn write_csv(&self, name: String) {
+        let file_name = format!("{}-netstats.csv", name);
         let mut path = std::path::PathBuf::from("results");
         path.push(file_name);
         let file = std::fs::File::create(path).unwrap();
@@ -55,12 +55,9 @@ impl IntoIterator for StatsCollection {
     }
 }
 
-pub fn file_bin(host: String, latency: Option<usize>) -> Option<std::io::BufWriter<std::fs::File>> {
-    let file_name = if let Some(ms) = latency {
-        format!("{}-host-transactions-{}ms.bin", host, ms)
-    } else {
-        format!("{}-host-transactions.bin", host)
-    };
+pub fn file_bin(name: String) -> Option<std::io::BufWriter<std::fs::File>> {
+    let file_name = format!("{}-transactions.bin", name);
+
     let mut path = std::path::PathBuf::from("results");
     path.push(file_name);
     let file = std::fs::File::create(path).unwrap();
