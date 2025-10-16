@@ -111,7 +111,7 @@ async fn run_endpoint(
     let mut transaction_id = 0;
     let mut tx_buffer = [0u8; PACKET_DATA_SIZE];
     let mut stat_buff: Vec<u32> = Vec::new();
-    let max_bitrate_mbps = 100e6;
+    let max_bitrate_mbps = 200e6;
     let time_between_txs = (tx_size * 8) as f64 / max_bitrate_mbps;
     loop {
         let con_stats = connection.stats();
