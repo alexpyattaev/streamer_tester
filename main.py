@@ -198,5 +198,6 @@ if __name__ == "__main__":
         call(["sudo", "mn", "-c"])
         main()
 
-    # import parse
-    # parse.main()
+    import parse
+
+    parse.main()

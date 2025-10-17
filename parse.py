@@ -8,7 +8,7 @@ import re
 
 
 def main():
-    config = json.load(open("results/1024/config.json"))
+    config = json.load(open("results/config.json"))
     pprint.pprint(config)
     duration = config["duration"]
 
@@ -20,7 +20,7 @@ def main():
         ]
     )
 
-    data = np.fromfile("results/1024/serverlog.bin", dtype=record_dtype)
+    data = np.fromfile("results/serverlog.bin", dtype=record_dtype)
     stakes = [
         re.split(r"[\s]+", l.strip()) for l in open("solana_pubkeys.txt").readlines()
     ]
@@ -33,12 +33,17 @@ def main():
     per_client = {}
     for file in os.listdir("results"):
         if file.endswith("summary"):
-            num = np.fromfile(f"./results/1024/{file}", dtype=np.uint64)
-            per_client[file.split(".")[0]] = num[0]
+            num = np.fromfile(f"./results/{file}", dtype=np.uint64)
+            id = file.replace(".", " ").replace("-", " ").split()[0]
+            if id in per_client.keys():
+                per_client[id] += num[0]
+            else:
+                per_client[id] = num[0]
 
     datapoints = open("datapoints.csv", "a")
     for id in stakes:
         b58_id = b58encode(id).decode("ascii")
+        print(f"b58_id:{b58_id}")
         sent = per_client[b58_id]
         got = (data["id"] == id).sum()
         print(

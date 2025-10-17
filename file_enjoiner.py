@@ -4,23 +4,26 @@ import subprocess
 import pandas as pd
 from collections import defaultdict
 
-from debian.changelog import endline
-
-TIME_SAMPLE = 10_000 #in microseconds
-
+TIME_SAMPLE = 10_000  # in microseconds
 
 
 def csv_handler(file):
     columns = ["udp_tx", "udp_rx", "time_stamp"]
-    data = pd.read_csv(file, skiprows=range(0, 1), sep=",", names=columns,
-                       dtype={"udp_tx": int, "udp_rx": int, "time_stamp": int})
+    data = pd.read_csv(
+        file,
+        skiprows=range(0, 1),
+        sep=",",
+        names=columns,
+        dtype={"udp_tx": int, "udp_rx": int, "time_stamp": int},
+    )
 
     return sample_csv(data)
+
 
 def sample_csv(df):
     df_upd = pd.DataFrame({"udp_tx": [], "udp_rx": [], "time_stamp": []})
     df["time_stamp"] = (df["time_stamp"] // TIME_SAMPLE) * TIME_SAMPLE
-    #set of all timestamps in dataframe
+    # set of all timestamps in dataframe
     timestamps = sorted(set(df["time_stamp"]))
     for timestamp in timestamps:
         try:
@@ -29,16 +32,19 @@ def sample_csv(df):
         except:
             continue
 
-        #adding data to new dataframe
-        frame = pd.DataFrame({"udp_tx": [tx_max], "udp_rx": [rx_max], "time_stamp": [timestamp]})
+        # adding data to new dataframe
+        frame = pd.DataFrame(
+            {"udp_tx": [tx_max], "udp_rx": [rx_max], "time_stamp": [timestamp]}
+        )
         df_upd = pd.concat([df_upd, frame], ignore_index=True)
 
     return df_upd
 
+
 def sum_csv(dfs):
-    final_df = pd.DataFrame(columns=["udp_tx","udp_rx","time_stamp"])
-    for k,v in {"udp_tx": int, "udp_rx": int, "time_stamp": int}.items():
-        final_df.astype({k:v})
+    final_df = pd.DataFrame(columns=["udp_tx", "udp_rx", "time_stamp"])
+    for k, v in {"udp_tx": int, "udp_rx": int, "time_stamp": int}.items():
+        final_df.astype({k: v})
 
     timestamps = []
     for df in dfs:
@@ -59,20 +65,24 @@ def sum_csv(dfs):
 
         tx_sum = sum(values_to_sum["udp_tx"])
         rx_sum = sum(values_to_sum["udp_rx"])
-        frame = pd.DataFrame({"udp_tx": [int(tx_sum)], "udp_rx": [int(rx_sum)], "time_stamp": [int(timestamp)]})
+        frame = pd.DataFrame(
+            {
+                "udp_tx": [int(tx_sum)],
+                "udp_rx": [int(rx_sum)],
+                "time_stamp": [int(timestamp)],
+            }
+        )
 
         final_df = pd.concat([final_df, frame], ignore_index=True)
-
 
     return final_df
 
 
-
 def main():
-    #Nested directories list
+    # Nested directories list
     directories = os.listdir("results")
 
-    #Main data structure keypair[identity,"bin"/"csv"]:[data files names]
+    # Main data structure keypair[identity,"bin"/"csv"]:[data files names]
     identities = {}
 
     with open("solana_pubkeys.txt") as f:
@@ -117,9 +127,9 @@ def main():
 
             for id, files in csv_files.items():
                 for file in files:
-                    csv_dfs[id].append(csv_handler(path+file))
+                    csv_dfs[id].append(csv_handler(path + file))
                 df_to_write = sum_csv(csv_dfs[id])
-                df_to_write.to_csv(f"{path}{id}-{lat}.csv",index=False)
+                df_to_write.to_csv(f"{path}{id}-{lat}.csv", index=False)
                 print(f"SAVED CSV FILE::{path}{id}-{lat}.csv")
             for id, files in csv_files.items():
                 for file in files:
