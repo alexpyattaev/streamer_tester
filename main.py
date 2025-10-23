@@ -77,7 +77,7 @@ def main():
 
     print("Environment is up.\nRunning a server")
 
-    cmd = f"{args.server} --test-duration {args.duration+10.0} --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000"
+    cmd = f"{args.server} --test-duration {args.duration+10.0} --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000 --log-file ./results/serverlog.bin"
 
     # srv_tcpdump = subprocess.Popen(f"{cli} tcpdump -i srv-br -w capture_server.pcap",
     #                        shell=True, text=True,
