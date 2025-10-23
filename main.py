@@ -1,17 +1,24 @@
 #!/usr/bin/env python3
 
-from mininet.net import Mininet
-from mininet.node import OVSController
-from mininet.link import TCLink
-from mininet.cli import CLI
-from mininet.log import setLogLevel
-from subprocess import call
 import argparse
 from tooling import watchdog
 import subprocess
 import json
 import sys
 import os
+
+
+def write_configs_json(client_identities, args):
+    configs = {
+        "duration": args.duration,
+        "tx_size": args.tx_size,
+        "server_addr": args.server_addr,
+        "latency": args.latency,
+        "loss_percentage": args.loss_percentage,
+        "clients": [{"pubkey": pk, "latency": args.latency} for pk in client_identities],
+    }
+    with open("results/config.json", "w") as f:
+        json.dump(configs, f, indent=2)
 
 
 class ClientNode():
@@ -21,19 +28,16 @@ class ClientNode():
         self.host = host
 
     def run_agave_client(self, target:str, duration:float, tx_size:int):
-        args = f"./mock_server/target/release/client --target {target} --duration {duration} --host-name {self.pubkey} --staked-identity-file solana_keypairs/{self.pubkey}.json --num-connections 1 --tx-size {tx_size} --disable-congestion"
+        args = f"./mock_server/target/release/client --target {target} --duration {duration} --host-name {self.pubkey} --staked-identity-file solana_keypairs/{self.pubkey}.json --num-connections 1 --tx-size {tx_size}"
 
         print(f"running {args}...")
-        # self.tcpdump = subprocess.Popen(f"{cli} tcpdump -i veth_cli-2 -w capture_client.pcap",
-        #                         shell=True, text=True,
-        #                         stdout=subprocess.PIPE,
-        #                         stderr=subprocess.PIPE,
-        #                         )
-        self.proc = self.host.popen(f"{args}",
-                                shell=True, text=True,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
-                                )
+        self.proc = subprocess.Popen(
+            args,
+            shell=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
 
     def wait(self):
         print(f"==== Terminating client {self.pubkey} latency {self.latency}")
@@ -53,7 +57,8 @@ def main():
     parser.add_argument('--duration',type=float,help='how long to run the test for',default=3.0)
     parser.add_argument('--latency',type=int,help='override latency',default=50)
     parser.add_argument('--tx-size',type=int,help='Transaction size',default=1000)
-    parser.add_argument('--server',type=str,help='Server binary path',default="./swqos")
+    # parser.add_argument('--server',type=str,help='Server binary path',default="./swqos")
+    parser.add_argument('--server-addr',type=str,help='Server IP',default="127.0.0.1:8000")
 
     args = parser.parse_args()
 
@@ -63,45 +68,41 @@ def main():
         subprocess.run("rm results/*", shell=True)
 
 
-    if args.loss_percentage not in range(0,100):
-        print("run ./sosim -h'")
-        exit()
+    # if args.loss_percentage not in range(0,100):
+    #     print("run ./sosim -h'")
+    #     exit()
 
     client_identities = [l.strip().split(' ')[0].strip() for l in open(args.hosts,'r').readlines()]
     client_nodes = []
+    for client in client_identities:
+        client_nodes.append(ClientNode(pubkey=client, latency=args.latency, host=None))
+
+    write_configs_json(client_identities, args)
 
 
-    net, server_node, client_nodes = topology(client_identities, args)
 
 
-
-    print("Environment is up.\nRunning a server")
-
-    cmd = f"{args.server} --test-duration {args.duration+10.0} --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000"
+    print("Launching clients against remote server")
 
     # srv_tcpdump = subprocess.Popen(f"{cli} tcpdump -i srv-br -w capture_server.pcap",
     #                        shell=True, text=True,
     #                        stdout=subprocess.PIPE,
     #                        stderr=subprocess.PIPE,
     #                        )
-    print(f"Running {cmd}")
-    server = server_node.popen(cmd,
-        shell=True, text=True,
-        stdout=subprocess.DEVNULL,
-        stderr=sys.stdout,
-        env = os.environ.copy(),
-        bufsize=1
-    )
+    # print(f"Running {cmd}")
+    # server = server_node.popen(cmd,
+    #     shell=True, text=True,
+    #     stdout=subprocess.DEVNULL,
+    #     stderr=sys.stdout,
+    #     env = os.environ.copy(),
+    #     bufsize=1
+    # )
+
 
     for node in client_nodes:
-        node.run_agave_client(target =server_node.IP()+":8000", duration=args.duration, tx_size=args.tx_size)
+        node.run_agave_client(target=args.server_addr, duration=args.duration, tx_size=args.tx_size)
 
-    try:
-        server.wait(timeout=args.duration+20.0)
-    except:
-        server.kill()
-        print("Server killed")
-    server.wait()
+
     print("========Stopping clients=======")
     for node in client_nodes:
         node.wait()
@@ -115,44 +116,41 @@ def main():
     #CLI(net)
 
     print("*** Stopping network")
-    net.stop()
+    # net.stop()
 
-def topology(client_identities, args):
-    configs = {"duration":args.duration, "tx-size":args.tx_size}
-    net = Mininet(controller=OVSController, link=TCLink)
-    switch = net.addSwitch('s1')
-    _ = net.addController('c0')
-    server = net.addHost('server')
-    net.addLink(server, switch, delay='1ms', bw=1000, limit=2000000)   # server side (fast)
-    client_nodes = []
-    print("*** Creating clients")
+# def topology(client_identities, args):
+#     configs = {"duration":args.duration, "tx-size":args.tx_size}
+#     net = Mininet(controller=OVSController, link=TCLink)
+#     switch = net.addSwitch('s1')
+#     _ = net.addController('c0')
+#     server = net.addHost('server')
+#     net.addLink(server, switch, delay='1ms', bw=1000, limit=2000000)   # server side (fast)
+#     client_nodes = []
+#     print("*** Creating clients")
 
-    for idx, host_id in enumerate(client_identities, start = 2):
-        host = net.addHost(f'client')
-        link_delay = args.latency
-        net.addLink(host, switch, delay=f'{link_delay}ms', bw=1000, limit=2000000)
-        configs[host_id] = {"latency":link_delay}
-        client_nodes.append(ClientNode(pubkey=host_id, latency=link_delay, host=host))
+#     for idx, host_id in enumerate(client_identities, start = 2):
+#         host = net.addHost(f'client')
+#         link_delay = args.latency
+#         # net.addLink(host, switch, delay=f'{link_delay}ms', bw=1000, limit=2000000)
+#         # configs[host_id] = {"latency":link_delay}
+#         client_nodes.append(ClientNode(pubkey=host_id, latency=link_delay, host=host))
 
 
-    print("*** Starting network")
-    net.start()
+#     print("*** Starting network")
+#     net.start()
 
-    print(f"Server IP is {server.IP()}")
-    for client in client_nodes:
-        print(client.host.IP())
+#     print(f"Server IP is {server.IP()}")
+#     for client in client_nodes:
+#         print(client.host.IP())
 
-    print("*** Testing connectivity")
-    #net.pingAll()
-    json.dump(configs, open("results/config.json", "w"))
-    return net, server, client_nodes
+#     print("*** Testing connectivity")
+#     #net.pingAll()
+#     json.dump(configs, open("results/config.json", "w"))
+#     return net, server, client_nodes
 
 if __name__ == '__main__':
-    setLogLevel('info')
     with watchdog(60):
-        print("\n[DEBUG] Cleaning Mininet state (mn -c)")
-        call(["sudo", "mn", "-c"])
         main()
 
-    import parse
-    parse.main()
+    # import parse
+    # parse.main()
