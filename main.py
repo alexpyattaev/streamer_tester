@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-from tooling import watchdog
+# from tooling import watchdog
 import subprocess
 import json
 import sys
@@ -149,8 +149,8 @@ def main():
 #     return net, server, client_nodes
 
 if __name__ == '__main__':
-    with watchdog(60):
-        main()
+    # with watchdog(60):
+    main()
 
     # import parse
     # parse.main()
