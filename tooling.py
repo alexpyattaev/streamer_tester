@@ -5,7 +5,7 @@ import subprocess
 import time
 import signal
 from typing import IO, Union
-from mininet.node import Host
+# from mininet.node import Host
 import os
 import fcntl
 import json
@@ -34,103 +34,103 @@ def watchdog(max_time_min: int):
         print("Watchdog killed successfully")
 
 
-def write_entry_script(host: Host):
-    name = f"shell_{host.name}.sh"
-    print(f"PID of {host.name} = {host.pid}, source {name} for shell access")
-    with open(name, "w") as f:
-        f.write(f"sudo mnexec -a {host.pid} bash\n")
-    os.chmod(name, 0o777)
+# def write_entry_script(host: Host):
+#     name = f"shell_{host.name}.sh"
+#     print(f"PID of {host.name} = {host.pid}, source {name} for shell access")
+#     with open(name, "w") as f:
+#         f.write(f"sudo mnexec -a {host.pid} bash\n")
+#     os.chmod(name, 0o777)
 
 
-def gracefully_stop(handle: Popen):
-    print(f"Trying to stop process {handle.pid} {handle.args}")
-    if isinstance(handle, CRDS_Node):
-        handle.exit()
-    handle.send_signal(signal.SIGINT)
-    try:
-        handle.wait(10.0)
-    except subprocess.TimeoutExpired:
-        handle.terminate()
-        time.sleep(1.0)
-        handle.kill()
+# def gracefully_stop(handle: Popen):
+#     print(f"Trying to stop process {handle.pid} {handle.args}")
+#     if isinstance(handle, CRDS_Node):
+#         handle.exit()
+#     handle.send_signal(signal.SIGINT)
+#     try:
+#         handle.wait(10.0)
+#     except subprocess.TimeoutExpired:
+#         handle.terminate()
+#         time.sleep(1.0)
+#         handle.kill()
 
 
-class CRDS_Node:
-    def __init__(self, host: Host, cmd: str):
-        self.cmd = cmd
-        self.pipe = host.popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                               bufsize=1,  # Line-buffered
-                               universal_newlines=True)
-        assert self.pipe.stdin is not None
-        assert self.pipe.stdout is not None
-        self.stdin: IO = self.pipe.stdin
-        self.stdout: IO = self.pipe.stdout
-        set_nonblocking(self.stdout)
-        for i in range(10):
-            rv = self.out()
-            if not rv:
-                time.sleep(0.1)
-            else:
-                rv = json.loads(rv[0])
-                self.pubkey = rv["start_node"]
-                break
-        else:
-            raise RuntimeError(f"Process {cmd} on host {host} startup failure!")
+# class CRDS_Node:
+#     def __init__(self, host: Host, cmd: str):
+#         self.cmd = cmd
+#         self.pipe = host.popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+#                                bufsize=1,  # Line-buffered
+#                                universal_newlines=True)
+#         assert self.pipe.stdin is not None
+#         assert self.pipe.stdout is not None
+#         self.stdin: IO = self.pipe.stdin
+#         self.stdout: IO = self.pipe.stdout
+#         set_nonblocking(self.stdout)
+#         for i in range(10):
+#             rv = self.out()
+#             if not rv:
+#                 time.sleep(0.1)
+#             else:
+#                 rv = json.loads(rv[0])
+#                 self.pubkey = rv["start_node"]
+#                 break
+#         else:
+#             raise RuntimeError(f"Process {cmd} on host {host} startup failure!")
 
-    def exit(self):
-        self.send("exit")
+#     def exit(self):
+#         self.send("exit")
 
-    def __getattr__(self, attr: str):
-        return getattr(self.pipe, attr)
+#     def __getattr__(self, attr: str):
+#         return getattr(self.pipe, attr)
 
-    def help(self):
-        """Call the help on the node"""
-        self.send("help")
+#     def help(self):
+#         """Call the help on the node"""
+#         self.send("help")
 
-    def send(self, msg: Union[str, dict], poll=True) -> list[str]:
-        """Send message to the node. Message could be a string or json."""
-        if isinstance(msg, dict):
-            msg = json.dumps(msg)
-        try:
-            self.stdin.write(msg + "\n")
-        except Exception:
-            print("Can not send, process is dead")
-            return []
-        if poll:
-            time.sleep(0.1)
-            return self.out()
-        else:
-            return []
+#     def send(self, msg: Union[str, dict], poll=True) -> list[str]:
+#         """Send message to the node. Message could be a string or json."""
+#         if isinstance(msg, dict):
+#             msg = json.dumps(msg)
+#         try:
+#             self.stdin.write(msg + "\n")
+#         except Exception:
+#             print("Can not send, process is dead")
+#             return []
+#         if poll:
+#             time.sleep(0.1)
+#             return self.out()
+#         else:
+#             return []
 
-    def insert_contact_info(self, address: str, keypair: str = ""):
-        self.out()
-        ci = {"address": address}
-        if keypair:
-            ci['keypair'] = keypair
-        self.send(json.dumps({"InsertContactInfo": ci}))
-        return self.out()
+#     def insert_contact_info(self, address: str, keypair: str = ""):
+#         self.out()
+#         ci = {"address": address}
+#         if keypair:
+#             ci['keypair'] = keypair
+#         self.send(json.dumps({"InsertContactInfo": ci}))
+#         return self.out()
 
-    def peers(self):
-        """Get list of CRDS peers"""
-        self.out()
-        self.send('{"Peers":null}', poll=False)
-        time.sleep(0.2)
-        rv = self.out()[0]
-        return json.loads(rv)
+#     def peers(self):
+#         """Get list of CRDS peers"""
+#         self.out()
+#         self.send('{"Peers":null}', poll=False)
+#         time.sleep(0.2)
+#         rv = self.out()[0]
+#         return json.loads(rv)
 
-    def out(self) -> list[str]:
-        """Get pending output from the pipe"""
-        rv = []
-        try:
-            while self.stdout.readable:
-                msg = self.stdout.readline()
-                if len(msg):
-                    rv.append(msg)
-                else:
-                    break
-        except BlockingIOError:
-            pass
-        return rv
+#     def out(self) -> list[str]:
+#         """Get pending output from the pipe"""
+#         rv = []
+#         try:
+#             while self.stdout.readable:
+#                 msg = self.stdout.readline()
+#                 if len(msg):
+#                     rv.append(msg)
+#                 else:
+#                     break
+#         except BlockingIOError:
+#             pass
+#         return rv
 
 
 def run_repl(gossip, ip_addresses, net=None, topo=None, break_link=None, repair_link=None):
