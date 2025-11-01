@@ -9,50 +9,15 @@
 // path: PathStats { rtt: 3.461059ms, cwnd: 12000, congestion_events: 0, lost_packets: 0, lost_bytes: 0, sent_packets: 4, sent_plpmtud_probes: 1,
 // lost_plpmtud_probes: 0, black_holes_detected: 0, current_mtu: 1200 } }
 
-#[derive(Clone, Copy, Debug)]
+use bytemuck::{AnyBitPattern, NoUninit};
+#[derive(Clone, Copy, Debug, AnyBitPattern, NoUninit)]
+#[repr(C)]
 pub struct StatsSample {
     pub udp_tx: u64,
     pub udp_rx: u64,
+    pub congestion_events: u64,
+    pub lost_packets: u64,
     pub time_stamp: u64,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct StatsCollection(pub Vec<StatsSample>);
-
-impl StatsCollection {
-    pub fn new() -> StatsCollection {
-        StatsCollection(Vec::new())
-    }
-
-    pub fn push(&mut self, sample: StatsSample) {
-        self.0.push(sample);
-    }
-
-    pub fn write_csv(&self, host: String) {
-        let file_name = format!("{}-host-netstats.csv", host);
-        let mut path = std::path::PathBuf::from("results");
-        path.push(file_name);
-        let file = std::fs::File::create(path).unwrap();
-        let mut csv_writer = csv::Writer::from_writer(file);
-        csv_writer
-            .write_record(["udp_tx", "udp_rx", "time_stamp"])
-            .unwrap();
-        for stat in &self.0 {
-            csv_writer
-                .serialize((stat.udp_tx, stat.udp_rx, stat.time_stamp))
-                .unwrap();
-        }
-        let _ = csv_writer.flush();
-    }
-}
-
-impl IntoIterator for StatsCollection {
-    type Item = StatsSample;
-    type IntoIter = std::vec::IntoIter<StatsSample>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
 }
 
 pub fn file_bin(host: String) -> Option<std::io::BufWriter<std::fs::File>> {

@@ -3,11 +3,15 @@
 //!
 //! Checkout the `README.md` for guidance.
 
+/*use bytemuck::{AnyBitPattern, NoUninit};
+use client::quic_networking::ConnectionState;
+use tracing::debug;
+use std::sync::atomic::Ordering::Relaxed;*/
 use quinn::ClientConfig;
-use shared::stats_collection::{file_bin, StatsCollection, StatsSample};
+use shared::stats_collection::{file_bin, StatsSample};
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 use std::io::Write as _;
-use tracing::trace;
+use tracing::error;
 use {
     client::{
         cli::{build_cli_parameters, ClientCliParameters},
@@ -50,7 +54,7 @@ fn main() {
     ::std::process::exit(code);
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 8)]
 async fn run(parameters: ClientCliParameters) -> Result<(), QuicClientError> {
     let identity = if let Some(staked_identity_file) = parameters.staked_identity_file.clone() {
         Keypair::read_from_file(staked_identity_file)
@@ -68,10 +72,8 @@ async fn run(parameters: ClientCliParameters) -> Result<(), QuicClientError> {
     )
     .await;
     match result {
-        Ok(collection) => {
-            if let Some(host_name) = parameters.host_name.clone() {
-                collection.write_csv(host_name);
-            }
+        Ok(_) => {
+            println!("Successfully completed!");
         }
         Err(e) => println!("{e}"),
     }
@@ -93,14 +95,14 @@ async fn run_endpoint(
     }: ClientCliParameters,
     identity: Pubkey,
     host_name: Option<&String>,
-) -> Result<StatsCollection, QuicClientError> {
+) -> Result<(), QuicClientError> {
     let endpoint =
         create_client_endpoint(bind, client_config).expect("Endpoint creation should not fail.");
 
     let connection = endpoint.connect(target, "connect")?.await?;
 
-    let mut stats_collector: StatsCollection = StatsCollection::new();
-    let mut stats_dt: u64;
+    // avoid allocations for up to 10M samples
+    let mut stats_collector: Vec<StatsSample> = Vec::with_capacity(10 * 1024 * 1024);
 
     let mut file_binary_log = if let Some(host_name) = host_name {
         file_bin(host_name.into())
@@ -110,16 +112,81 @@ async fn run_endpoint(
     let start = Instant::now();
     let mut transaction_id = 0;
     let mut tx_buffer = [0u8; PACKET_DATA_SIZE];
-    let mut stat_buff: Vec<u32> = Vec::new();
-    let max_bitrate_mbps = 200e6;
-    let time_between_txs = (tx_size * 8) as f64 / max_bitrate_mbps;
+    let max_bitrate_bps = 200e6;
+    let time_between_txs = (tx_size * 8) as f64 / max_bitrate_bps;
+
+    /*let (_, mut feedback_stream) = connection.open_bi().await.unwrap();
+    #[derive(Debug, Copy, Clone)]
+    #[repr(u64)]
+    enum Feedback {
+        Start(u64),
+        Done(u64),
+        Error(u64),
+    }
+    #[derive(Debug, Copy, Clone, NoUninit, AnyBitPattern)]
+    #[repr(C)]
+    struct FeedbackStruct {
+        tag: u64,
+        stream_id: u64,
+    }
+    impl From<FeedbackStruct> for Feedback {
+        fn from(x: FeedbackStruct) -> Self {
+            match x.tag {
+                0 => Feedback::Start(x.stream_id),
+                1 => Feedback::Done(x.stream_id),
+                2 => Feedback::Error(x.stream_id),
+                _ => panic!(),
+            }
+        }
+    }
+
+    impl From<Feedback> for FeedbackStruct {
+        fn from(x: Feedback) -> FeedbackStruct {
+            match x {
+                Feedback::Start(stream_id) => FeedbackStruct { tag: 0, stream_id },
+                Feedback::Done(stream_id) => FeedbackStruct { tag: 1, stream_id },
+                Feedback::Error(stream_id) => FeedbackStruct { tag: 2, stream_id },
+            }
+        }
+    }
+    let connection_state = Arc::new(ConnectionState::default());
+
+    let feedback_reader = tokio::spawn({
+        let server_state = connection_state.clone();
+        async move {
+            loop {
+                let mut buf = [0u8; 16];
+                if feedback_stream.read_exact(&mut buf).await.is_err() {
+                    break;
+                }
+                let x: FeedbackStruct = *bytemuck::from_bytes(&buf);
+                let x: Feedback = x.into();
+                match x {
+                    Feedback::Start(sid) => {
+                        server_state.server_last_started_stream.store(sid, Relaxed);
+                    }
+                    Feedback::Done(sid) => {
+                        server_state
+                            .server_last_completed_stream
+                            .store(sid, Relaxed);
+                        server_state.server_completed_streams.fetch_add(1, Relaxed);
+                    }
+                    Feedback::Error(sid) => {
+                        dbg!(server_state);
+                        panic!("Stream error for {sid}");
+                    }
+                }
+            }
+        }
+    });*/
     loop {
         let con_stats = connection.stats();
-        stats_dt = start.elapsed().as_micros() as u64;
         let stats = StatsSample {
             udp_tx: con_stats.udp_tx.bytes,
             udp_rx: con_stats.udp_rx.bytes,
-            time_stamp: stats_dt,
+            time_stamp: start.elapsed().as_micros() as u64,
+            congestion_events: con_stats.path.congestion_events,
+            lost_packets: con_stats.path.lost_packets,
         };
         stats_collector.push(stats);
 
@@ -143,39 +210,44 @@ async fn run_endpoint(
             identity,
             tx_size,
         );
-
         match tokio::time::timeout(
-            Duration::from_millis(500),
-            send_data_over_stream(&connection, &tx_buffer[0..tx_size as usize], start),
+            Duration::from_millis(1500),
+            send_data_over_stream(&connection, &tx_buffer[0..tx_size as usize]),
         )
         .await
         {
-            Ok(Ok(dt)) => {
+            Ok(Ok(_)) => {
                 transaction_id += 1;
-                stat_buff.push(dt);
+                // if transaction_id % 1000 == 0 {
+                //     debug!("{:?}", &connection_state);
+                // }
             }
             Ok(Err(e)) => {
-                println!("Quic error {e}");
+                error!("Quic error {e}");
                 break;
             }
             Err(_e) => {
-                trace!("Timeout sending stream, skipping");
+                error!("Timeout sending stream, aborting");
+                break;
             }
         }
-        if time_between_txs * transaction_id as f64 > start.elapsed().as_secs_f64() {
-            tokio::time::sleep(Duration::from_millis(10)).await;
+        if time_between_txs * transaction_id.saturating_sub(1) as f64
+            > start.elapsed().as_secs_f64()
+        {
+            println!("Throttling client");
+            tokio::time::sleep(Duration::from_millis(1)).await;
         }
     }
 
     if let Some(writer) = file_binary_log.as_mut() {
-        for val in &stat_buff {
-            writer.write_all(&val.to_ne_bytes()).unwrap();
+        for val in &stats_collector {
+            writer.write_all(bytemuck::bytes_of(val)).unwrap();
         }
         writer.flush().unwrap();
     }
     // When the connection is closed all the streams that haven't been delivered yet will be lost.
     // Sleep to give it some time to deliver all the pending streams.
-    sleep(Duration::from_secs(1)).await;
+    sleep(Duration::from_secs(3)).await;
 
     let connection_stats = connection.stats();
     info!("client connection stats: {:?}", connection_stats);
@@ -191,7 +263,8 @@ async fn run_endpoint(
     connection.close(0u32.into(), b"done");
     // Give the server a fair chance to receive the close packet
     endpoint.wait_idle().await;
-    Ok(stats_collector)
+    //let _ = feedback_reader.await;
+    Ok(())
 }
 
 /// return timestamp as ms

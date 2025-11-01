@@ -17,6 +17,7 @@ clap = { version = "4", features = ["derive"] }
 chrono = { version = "0.4.41", default-features = false, features = ["clock"] }
 pem = "1.1.1"
 anyhow = "1.0.98"
+bytemuck = "1.24.0"
 bytes = { version = "1.10" }
 thiserror = "1.0.58"
 directories-next = "2"

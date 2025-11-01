@@ -1,9 +1,12 @@
+use std::sync::atomic::AtomicU64;
+
 use quinn::{
     congestion::{Controller, ControllerFactory},
     crypto::rustls::QuicClientConfig,
     ClientConfig, Connection, Endpoint, IdleTimeout, TransportConfig,
 };
 use solana_sdk::signature::Keypair;
+//use std::sync::atomic::Ordering::Relaxed;
 
 use {
     crate::error::QuicClientError,
@@ -171,14 +174,22 @@ pub fn create_client_endpoint(
 pub async fn send_data_over_stream(
     connection: &Connection,
     data: &[u8],
-    start: std::time::Instant,
-) -> Result<u32, QuicClientError> {
+) -> Result<u64, QuicClientError> {
     let mut send_stream = connection.open_uni().await?;
-
+    let stream_id = send_stream.id().index();
     send_stream.write_all(data).await?;
     // never do this (c) Alessandro
-    // let _ = send_stream.finish();
-    let dt = start.elapsed().as_micros() as u32;
+    //let _ = send_stream.finish();
 
-    Ok(dt)
+    Ok(stream_id)
+}
+
+#[derive(Debug, Default)]
+pub struct ConnectionState {
+    pub server_last_started_stream: AtomicU64,
+    pub server_last_completed_stream: AtomicU64,
+    pub client_last_started_stream: AtomicU64,
+    pub client_last_completed_stream: AtomicU64,
+    pub server_completed_streams: AtomicU64,
+    pub client_completed_streams: AtomicU64,
 }
