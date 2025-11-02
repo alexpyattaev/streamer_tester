@@ -152,10 +152,6 @@ def main():
         # res.wait()
         node.wait()
 
-    res = server_node.popen(
-        "ip -s link show", shell=True, text=True, stdout=sys.stdout, stderr=sys.stderr
-    )
-    res.wait()
     # srv_tcpdump.terminate()
     # print("Waiting on server tcpdump")
     # srv_tcpdump.wait()

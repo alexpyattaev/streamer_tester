@@ -3,6 +3,7 @@
 //!
 //! Checkout the `README.md` for guidance.
 
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Utc};
 /*use bytemuck::{AnyBitPattern, NoUninit};
 use client::quic_networking::ConnectionState;
 use tracing::debug;
@@ -110,6 +111,10 @@ async fn run_endpoint(
         None
     };
     let start = Instant::now();
+    let solana_epoch = NaiveDateTime::new(
+        NaiveDate::from_ymd_opt(2020, 3, 16).unwrap(),
+        NaiveTime::MIN,
+    );
     let mut transaction_id = 0;
     let mut tx_buffer = [0u8; PACKET_DATA_SIZE];
     let max_bitrate_bps = 200e6;
@@ -181,10 +186,12 @@ async fn run_endpoint(
     });*/
     loop {
         let con_stats = connection.stats();
+        let now = Utc::now().naive_utc();
+        let delta_time = (now - solana_epoch).num_microseconds().unwrap() as u64;
         let stats = StatsSample {
             udp_tx: con_stats.udp_tx.bytes,
             udp_rx: con_stats.udp_rx.bytes,
-            time_stamp: start.elapsed().as_micros() as u64,
+            time_stamp: delta_time,
             congestion_events: con_stats.path.congestion_events,
             lost_packets: con_stats.path.lost_packets,
         };
@@ -234,7 +241,6 @@ async fn run_endpoint(
         if time_between_txs * transaction_id.saturating_sub(1) as f64
             > start.elapsed().as_secs_f64()
         {
-            println!("Throttling client");
             tokio::time::sleep(Duration::from_millis(1)).await;
         }
     }

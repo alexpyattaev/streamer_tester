@@ -1,8 +1,13 @@
 #!/bin/bash
 set -x -e
 
+cd ~/agave/streamer 
+cargo build --release --examples
+cd ~/streamer_torture/mock_server
+cargo build --release
+cd ../
 
-T="sudo ./main.py solana_pubkeys.txt --duration=3.0 --server=./swqos"
+T="sudo ./main.py solana_pubkeys.txt --duration=5.0 --server=./swqos"
 N=5
 
 make_and_run() {
@@ -22,7 +27,7 @@ make_and_run() {
 }
 
 # configure what latencies to test
-LATS=(5 50 100)
+LATS=(5 50 100 150)
 
 # run for different transaction sizes
 make_and_run 176 new "${LATS[@]}"

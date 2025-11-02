@@ -14,13 +14,14 @@ np.set_printoptions(suppress=True)
 
 
 def main():
-    transactions_per_second: dict[str, np.ndarray] = {}
+    transactions_per_second: dict[str, dict] = {}
     total_sent_bytes_per_host = {}
     total_sent_transactions_per_client = {}
     stakes = {}
 
-    client_transport_stats: dict[str, np.ndarray] = {}
+    client_transport_stats: dict[str, np.ndarray[client_local_dtype]] = {}
 
+    base_time = 2**62
     # Processing binary files
     for binary_file in [f for f in os.listdir("results") if f.endswith(".bin")]:
         path = os.path.join("results", binary_file)
@@ -31,26 +32,27 @@ def main():
             data = np.fromfile(path, dtype=server_record_dtype).astype(
                 server_local_dtype
             )
-            data["time"] = data["time"] / 1e6  # turn into seconds
+
         else:
             data = np.fromfile(path, dtype=client_record_dtype).astype(
                 client_local_dtype
             )
-            data["time"] = data["time"] / 1e6  # turn into seconds
+
             client_transport_stats[host] = data
             print(f"{host}, {data['udp_tx'][-1]}")
             total_sent_bytes_per_host[host] = data["udp_tx"][-1]
             total_sent_transactions_per_client[host] = len(data["time"])
 
+        base_time = min(base_time, data["time"].min())
         start = data["time"].min()
         end = data["time"].max()
 
-        bin_size = 0.01
-        bins = np.arange(start, end + bin_size, bin_size)  # 10 ms granularity
+        bin_size = 1000 * 10  # 10 ms bins
+        bins = np.arange(start, end + bin_size, bin_size)
         counts, edges = np.histogram(data["time"], bins=bins)
         transactions_per_second[host] = {"timeline": edges[0:-1], "TPS": counts * 100}
 
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 12))
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(18, 14))
     ax1_2 = ax1.twinx()
     color_cycle = cycle(plt.cm.tab20.colors)
     for host, host_data in client_transport_stats.items():
@@ -71,7 +73,7 @@ def main():
         # )
         # congestions = np.diff(host_data["congestion_events"], prepend=[0]) != 0
         ax1_2.plot(
-            host_data["time"],
+            host_data["time"] / 1e6,
             host_data["congestion_events"],
             label=f"{host[0:7]}-congestions",
             linestyle=":",
@@ -97,7 +99,7 @@ def main():
             linewidth = 2
             ax = ax2_2
         ax.plot(
-            data["timeline"],
+            data["timeline"] / 1e6,
             data["TPS"],
             label=f"{host[0:7]}",
             linestyle="-",
