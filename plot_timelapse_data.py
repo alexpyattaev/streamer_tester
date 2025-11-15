@@ -37,7 +37,6 @@ def main():
             data = np.fromfile(path, dtype=client_record_dtype).astype(
                 client_local_dtype
             )
-
             client_transport_stats[host] = data
             print(f"{host}, {data['udp_tx'][-1]}")
             total_sent_bytes_per_host[host] = data["udp_tx"][-1]

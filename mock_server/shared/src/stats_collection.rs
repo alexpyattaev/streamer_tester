@@ -20,11 +20,11 @@ pub struct StatsSample {
     pub time_stamp: u64,
 }
 
-pub fn file_bin(host: String) -> Option<std::io::BufWriter<std::fs::File>> {
+pub fn file_bin(host: String) -> anyhow::Result<std::io::BufWriter<std::fs::File>> {
     let file_name = format!("{}-host-transactions.bin", host);
     let mut path = std::path::PathBuf::from("results");
     path.push(file_name);
-    let file = std::fs::File::create(path).unwrap();
+    let file = std::fs::File::create(path)?;
     let file = std::io::BufWriter::with_capacity(1024 * 1024, file);
-    Some(file)
+    Ok(file)
 }

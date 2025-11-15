@@ -56,7 +56,7 @@ fn main() {
 }
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 8)]
-async fn run(parameters: ClientCliParameters) -> Result<(), QuicClientError> {
+async fn run(parameters: ClientCliParameters) -> anyhow::Result<()> {
     let identity = if let Some(staked_identity_file) = parameters.staked_identity_file.clone() {
         Keypair::read_from_file(staked_identity_file)
             .map_err(|_err| QuicClientError::KeypairReadFailure)?
@@ -64,21 +64,44 @@ async fn run(parameters: ClientCliParameters) -> Result<(), QuicClientError> {
         Keypair::new()
     };
     let client_certificate = Arc::new(QuicClientCertificate::new(&identity));
-    let client_config = create_client_config(client_certificate, parameters.disable_congestion);
-    let result = run_endpoint(
-        client_config,
-        parameters.clone(),
-        identity.pubkey(),
-        parameters.host_name.clone().as_ref(),
-    )
-    .await;
-    match result {
-        Ok(_) => {
-            println!("Successfully completed!");
+
+    let mut join_set = tokio::task::JoinSet::new();
+
+    for _ in 0..parameters.num_connections {
+        let client_config =
+            create_client_config(client_certificate.clone(), parameters.disable_congestion);
+        join_set.spawn(run_endpoint(
+            client_config,
+            parameters.clone(),
+            identity.pubkey(),
+        ));
+    }
+    let mut total_sent: Vec<StatsSample> = Vec::with_capacity(10 * 1024 * 1024);
+    for result in join_set.join_all().await {
+        let mut result = match result {
+            Ok(result) => result,
+            Err(e) => {
+                eprintln!("{e}");
+                continue;
+            }
+        };
+        total_sent.append(&mut result);
+    }
+    total_sent.sort_by(|a, b| a.time_stamp.cmp(&b.time_stamp));
+    if let Some(host_name) = parameters.host_name.clone() {
+        let mut writer = file_bin(host_name.clone())?;
+        for val in &total_sent {
+            writer.write_all(bytemuck::bytes_of(val)).unwrap();
         }
-        Err(e) => println!("{e}"),
+        writer.flush().unwrap();
+        let total_sent = total_sent.len() as u64;
+        info!("TRANSACTIONS_SENT {}", total_sent);
+        let mut num_sent_file =
+            std::fs::File::create(format!("results/{}.summary", host_name)).unwrap();
+        num_sent_file.write_all(&total_sent.to_ne_bytes()).unwrap();
     }
 
+    println!("Successfully completed!");
     Ok(())
 }
 
@@ -95,8 +118,7 @@ async fn run_endpoint(
         ..
     }: ClientCliParameters,
     identity: Pubkey,
-    host_name: Option<&String>,
-) -> Result<(), QuicClientError> {
+) -> Result<Vec<StatsSample>, QuicClientError> {
     let endpoint =
         create_client_endpoint(bind, client_config).expect("Endpoint creation should not fail.");
 
@@ -105,11 +127,6 @@ async fn run_endpoint(
     // avoid allocations for up to 10M samples
     let mut stats_collector: Vec<StatsSample> = Vec::with_capacity(10 * 1024 * 1024);
 
-    let mut file_binary_log = if let Some(host_name) = host_name {
-        file_bin(host_name.into())
-    } else {
-        None
-    };
     let start = Instant::now();
     let solana_epoch = NaiveDateTime::new(
         NaiveDate::from_ymd_opt(2020, 3, 16).unwrap(),
@@ -120,70 +137,6 @@ async fn run_endpoint(
     let max_bitrate_bps = 200e6;
     let time_between_txs = (tx_size * 8) as f64 / max_bitrate_bps;
 
-    /*let (_, mut feedback_stream) = connection.open_bi().await.unwrap();
-    #[derive(Debug, Copy, Clone)]
-    #[repr(u64)]
-    enum Feedback {
-        Start(u64),
-        Done(u64),
-        Error(u64),
-    }
-    #[derive(Debug, Copy, Clone, NoUninit, AnyBitPattern)]
-    #[repr(C)]
-    struct FeedbackStruct {
-        tag: u64,
-        stream_id: u64,
-    }
-    impl From<FeedbackStruct> for Feedback {
-        fn from(x: FeedbackStruct) -> Self {
-            match x.tag {
-                0 => Feedback::Start(x.stream_id),
-                1 => Feedback::Done(x.stream_id),
-                2 => Feedback::Error(x.stream_id),
-                _ => panic!(),
-            }
-        }
-    }
-
-    impl From<Feedback> for FeedbackStruct {
-        fn from(x: Feedback) -> FeedbackStruct {
-            match x {
-                Feedback::Start(stream_id) => FeedbackStruct { tag: 0, stream_id },
-                Feedback::Done(stream_id) => FeedbackStruct { tag: 1, stream_id },
-                Feedback::Error(stream_id) => FeedbackStruct { tag: 2, stream_id },
-            }
-        }
-    }
-    let connection_state = Arc::new(ConnectionState::default());
-
-    let feedback_reader = tokio::spawn({
-        let server_state = connection_state.clone();
-        async move {
-            loop {
-                let mut buf = [0u8; 16];
-                if feedback_stream.read_exact(&mut buf).await.is_err() {
-                    break;
-                }
-                let x: FeedbackStruct = *bytemuck::from_bytes(&buf);
-                let x: Feedback = x.into();
-                match x {
-                    Feedback::Start(sid) => {
-                        server_state.server_last_started_stream.store(sid, Relaxed);
-                    }
-                    Feedback::Done(sid) => {
-                        server_state
-                            .server_last_completed_stream
-                            .store(sid, Relaxed);
-                        server_state.server_completed_streams.fetch_add(1, Relaxed);
-                    }
-                    Feedback::Error(sid) => {
-                        dbg!(server_state);
-                        panic!("Stream error for {sid}");
-                    }
-                }
-            }
-        }
-    });*/
     loop {
         let con_stats = connection.stats();
         let now = Utc::now().naive_utc();
@@ -245,32 +198,18 @@ async fn run_endpoint(
         }
     }
 
-    if let Some(writer) = file_binary_log.as_mut() {
-        for val in &stats_collector {
-            writer.write_all(bytemuck::bytes_of(val)).unwrap();
-        }
-        writer.flush().unwrap();
-    }
     // When the connection is closed all the streams that haven't been delivered yet will be lost.
     // Sleep to give it some time to deliver all the pending streams.
     sleep(Duration::from_secs(3)).await;
 
     let connection_stats = connection.stats();
     info!("client connection stats: {:?}", connection_stats);
-    info!("TRANSACTIONS_SENT {}", transaction_id);
-    if let Some(host_name) = host_name {
-        let mut num_sent_file =
-            std::fs::File::create(format!("results/{}.summary", host_name)).unwrap();
-        num_sent_file
-            .write_all(&transaction_id.to_ne_bytes())
-            .unwrap();
-    }
 
     connection.close(0u32.into(), b"done");
     // Give the server a fair chance to receive the close packet
     endpoint.wait_idle().await;
     //let _ = feedback_reader.await;
-    Ok(())
+    Ok(stats_collector)
 }
 
 /// return timestamp as ms

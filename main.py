@@ -18,6 +18,7 @@ class ClientNode:
         self.pubkey = pubkey
         self.latency = latency
         self.host = host
+        self.proc = None
 
     def run_iperf_client(self, target: str, duration: float, tx_size: int):
         args = f"iperf3 -l{tx_size}b -c {target} -t{int(duration)} -u -b 1G"
@@ -30,8 +31,10 @@ class ClientNode:
             stderr=subprocess.PIPE,
         )
 
-    def run_agave_client(self, target: str, duration: float, tx_size: int):
-        args = f"./mock_server/target/release/client --target {target} --duration {duration} --host-name {self.pubkey} --staked-identity-file solana_keypairs/{self.pubkey}.json --num-connections 1 --tx-size {tx_size} --disable-congestion"
+    def run_agave_client(
+        self, target: str, duration: float, tx_size: int, num_connections: int
+    ):
+        args = f"./mock_server/target/release/client --target {target} --duration {duration} --host-name {self.pubkey} --staked-identity-file solana_keypairs/{self.pubkey}.json --num-connections {num_connections} --tx-size {tx_size} --disable-congestion"
 
         print(f"running {args}...")
         # self.tcpdump = subprocess.Popen(f"{cli} tcpdump -i veth_cli-2 -w capture_client.pcap",
@@ -49,6 +52,8 @@ class ClientNode:
 
     def wait(self):
         print(f"==== Terminating client {self.pubkey} latency {self.latency}")
+        if self.proc == None:
+            return
         print(self.proc.stdout.read(), end="")  # pyright:ignore
         print(self.proc.stderr.read(), end="")  # pyright:ignore
         self.proc.wait()
@@ -56,6 +61,7 @@ class ClientNode:
         # print("Waiting on tcpdump")
         # self.tcpdump.wait()
         print("======")
+        self.proc = None
 
 
 def main():
@@ -73,6 +79,18 @@ def main():
         "--duration", type=float, help="how long to run the test for", default=3.0
     )
     parser.add_argument("--latency", type=int, help="override latency", default=50)
+    parser.add_argument(
+        "--num_connections",
+        type=int,
+        help="number of connections per client",
+        default=1,
+    )
+    parser.add_argument(
+        "--num_clients",
+        type=int,
+        help="number of clients to spawn (0 to spawn all available)",
+        default=0,
+    )
     parser.add_argument("--tx-size", type=int, help="Transaction size", default=1000)
     parser.add_argument(
         "--server", type=str, help="Server binary path", default="./swqos"
@@ -101,7 +119,7 @@ def main():
     if args.iperf:
         cmd = "iperf3 -s -1"
     else:
-        cmd = f"{args.server} --test-duration {args.duration + 5.0} --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000 --log-file ./results/serverlog.bin"
+        cmd = f"{args.server} --test-duration {args.duration + 5.0} --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000 --log-file ./results/serverlog.bin --max-tps 500000"
 
     # srv_tcpdump = subprocess.Popen(f"{cli} tcpdump -i srv-br -w capture_server.pcap",
     #                        shell=True, text=True,
@@ -119,7 +137,9 @@ def main():
         bufsize=1,
     )
 
-    for node in client_nodes:
+    for i, node in enumerate(client_nodes):
+        if args.num_clients != 0 and i >= args.num_clients:
+            continue
         if args.iperf:
             node.run_iperf_client(
                 target=server_node.IP(),
@@ -130,6 +150,7 @@ def main():
         else:
             node.run_agave_client(
                 target=server_node.IP() + ":8000",
+                num_connections=args.num_connections,
                 duration=args.duration,
                 tx_size=args.tx_size,
             )
