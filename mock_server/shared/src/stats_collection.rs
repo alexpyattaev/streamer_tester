@@ -18,6 +18,7 @@ pub struct StatsSample {
     pub congestion_events: u64,
     pub lost_packets: u64,
     pub time_stamp: u64,
+    pub connection_id: u64,
 }
 
 pub fn file_bin(host: String) -> anyhow::Result<std::io::BufWriter<std::fs::File>> {

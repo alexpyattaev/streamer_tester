@@ -22,6 +22,7 @@ def main():
     client_transport_stats: dict[str, np.ndarray[client_local_dtype]] = {}
 
     base_time = 2**62
+    last_end_time = 0
     # Processing binary files
     for binary_file in [f for f in os.listdir("results") if f.endswith(".bin")]:
         path = os.path.join("results", binary_file)
@@ -37,14 +38,16 @@ def main():
             data = np.fromfile(path, dtype=client_record_dtype).astype(
                 client_local_dtype
             )
+            data = data[data["connection_id"] == 0]
             client_transport_stats[host] = data
             print(f"{host}, {data['udp_tx'][-1]}")
             total_sent_bytes_per_host[host] = data["udp_tx"][-1]
             total_sent_transactions_per_client[host] = len(data["time"])
 
-        base_time = min(base_time, data["time"].min())
         start = data["time"].min()
+        base_time = min(base_time, start)
         end = data["time"].max()
+        last_end_time = max(last_end_time, end)
 
         bin_size = 1000 * 10  # 10 ms bins
         bins = np.arange(start, end + bin_size, bin_size)
@@ -57,38 +60,31 @@ def main():
     for host, host_data in client_transport_stats.items():
         color = next(color_cycle)
         ax1.plot(
-            host_data["time"],
-            host_data["udp_tx"] / 1e6,
+            host_data["time"] / 1e6,
+            host_data["udp_tx"],
             label=f"{host[0:7]}-udp_tx",
             linestyle="-",
             color=color,
         )
-        # ax1.plot(
-        #     host_data["time"],
-        #     host_data["udp_rx"],
-        #     label=f"{host[0:7]}-udp_rx",
-        #     linestyle="--",
-        #     color=color,
-        # )
-        # congestions = np.diff(host_data["congestion_events"], prepend=[0]) != 0
+
         ax1_2.plot(
             host_data["time"] / 1e6,
             host_data["congestion_events"],
             label=f"{host[0:7]}-congestions",
             linestyle=":",
-            markerfacecolor="red",
-            markeredgecolor="red",
             color=color,
         )
 
+    ax1.set_xlim([base_time / 1e6, last_end_time / 1e6])
+    ax1_2.set_xlim([base_time / 1e6, last_end_time / 1e6])
     ax1.set_xlabel("Time (seconds)")
     ax1.set_ylabel("MBytes")
-    ax1_2.set_ylabel("Congestion events", color="r")
+    ax1_2.set_ylabel("Congestion events (dotted)", color="r")
     ax1.grid(True)
 
     color_cycle = cycle(plt.cm.tab20.colors)
     ax2_2 = ax2.twinx()
-    ax2_2.set_ylabel("Server-side TPS", color="black")
+    ax2_2.set_ylabel("Server-side TPS (black)", color="black")
     for host, data in transactions_per_second.items():
         color = next(color_cycle)
         linewidth = 1
@@ -106,6 +102,8 @@ def main():
             color=color,
         )
 
+    ax2_2.set_xlim([base_time / 1e6, last_end_time / 1e6])
+    ax2.set_xlim([base_time / 1e6, last_end_time / 1e6])
     ax2.set_ylabel("Transactions per Second")
 
     with open("solana_pubkeys.txt") as f:

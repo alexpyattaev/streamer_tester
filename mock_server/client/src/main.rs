@@ -67,13 +67,14 @@ async fn run(parameters: ClientCliParameters) -> anyhow::Result<()> {
 
     let mut join_set = tokio::task::JoinSet::new();
 
-    for _ in 0..parameters.num_connections {
+    for id in 0..parameters.num_connections as u64 {
         let client_config =
             create_client_config(client_certificate.clone(), parameters.disable_congestion);
         join_set.spawn(run_endpoint(
             client_config,
             parameters.clone(),
             identity.pubkey(),
+            id,
         ));
     }
     let mut total_sent: Vec<StatsSample> = Vec::with_capacity(10 * 1024 * 1024);
@@ -118,6 +119,7 @@ async fn run_endpoint(
         ..
     }: ClientCliParameters,
     identity: Pubkey,
+    connection_id: u64,
 ) -> Result<Vec<StatsSample>, QuicClientError> {
     let endpoint =
         create_client_endpoint(bind, client_config).expect("Endpoint creation should not fail.");
@@ -147,6 +149,7 @@ async fn run_endpoint(
             time_stamp: delta_time,
             congestion_events: con_stats.path.congestion_events,
             lost_packets: con_stats.path.lost_packets,
+            connection_id,
         };
         stats_collector.push(stats);
 
