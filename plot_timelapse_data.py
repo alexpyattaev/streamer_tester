@@ -60,7 +60,7 @@ def main():
     for host, host_data in client_transport_stats.items():
         color = next(color_cycle)
         ax1.plot(
-            host_data["time"] / 1e6,
+            (host_data["time"] - base_time) / 1e6,
             host_data["udp_tx"],
             label=f"{host[0:7]}-udp_tx",
             linestyle="-",
@@ -68,15 +68,15 @@ def main():
         )
 
         ax1_2.plot(
-            host_data["time"] / 1e6,
+            (host_data["time"] - base_time) / 1e6,
             host_data["congestion_events"],
             label=f"{host[0:7]}-congestions",
             linestyle=":",
             color=color,
         )
 
-    ax1.set_xlim([base_time / 1e6, last_end_time / 1e6])
-    ax1_2.set_xlim([base_time / 1e6, last_end_time / 1e6])
+    ax1.set_xlim([0, (last_end_time - base_time) / 1e6])
+    ax1_2.set_xlim([0, (last_end_time - base_time) / 1e6])
     ax1.set_xlabel("Time (seconds)")
     ax1.set_ylabel("MBytes")
     ax1_2.set_ylabel("Congestion events (dotted)", color="r")
@@ -94,7 +94,7 @@ def main():
             linewidth = 2
             ax = ax2_2
         ax.plot(
-            data["timeline"] / 1e6,
+            (data["timeline"] - base_time) / 1e6,
             data["TPS"],
             label=f"{host[0:7]}",
             linestyle="-",
@@ -102,8 +102,8 @@ def main():
             color=color,
         )
 
-    ax2_2.set_xlim([base_time / 1e6, last_end_time / 1e6])
-    ax2.set_xlim([base_time / 1e6, last_end_time / 1e6])
+    ax2_2.set_xlim([0, (last_end_time - base_time) / 1e6])
+    ax2.set_xlim([0, (last_end_time - base_time) / 1e6])
     ax2.set_ylabel("Transactions per Second")
 
     with open("solana_pubkeys.txt") as f:

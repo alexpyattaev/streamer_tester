@@ -119,7 +119,7 @@ def main():
     if args.iperf:
         cmd = "iperf3 -s -1"
     else:
-        cmd = f"{args.server} --test-duration {args.duration + 5.0} --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000 --log-file ./results/serverlog.bin"# --max-tps 500000"
+        cmd = f"{args.server} --test-duration {args.duration + 5.0} --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000 --log-file ./results/serverlog.bin --max-tps 500000"
 
     # srv_tcpdump = subprocess.Popen(f"{cli} tcpdump -i srv-br -w capture_server.pcap",
     #                        shell=True, text=True,
@@ -163,14 +163,22 @@ def main():
     server.wait()
     print("========Stopping clients=======")
     for node in client_nodes:
-        # res = node.host.popen(
-        #     "ip -s link show",
-        #     shell=True,
-        #     text=True,
-        #     stdout=sys.stdout,
-        #     stderr=sys.stderr,
-        # )
-        # res.wait()
+        res = node.host.popen(
+            "ip -s link show",
+            shell=True,
+            text=True,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+        )
+        res.wait()
+        res = node.host.popen(
+            "netstat -s",
+            shell=True,
+            text=True,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+        )
+        res.wait()
         node.wait()
 
     # srv_tcpdump.terminate()
