@@ -93,6 +93,11 @@ def main():
     )
     parser.add_argument("--tx-size", type=int, help="Transaction size", default=1000)
     parser.add_argument(
+        "--max-tps",
+        type=int,
+        help="Max TPS. If not specified uses defaults from streamer.",
+    )
+    parser.add_argument(
         "--server", type=str, help="Server binary path", default="./swqos"
     )
 
@@ -119,7 +124,8 @@ def main():
     if args.iperf:
         cmd = "iperf3 -s -1"
     else:
-        cmd = f"{args.server} --test-duration {args.duration + 5.0} --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000 --log-file ./results/serverlog.bin --max-tps 500000"
+        max_tps = f" --max-tps {args.max_tps}" if args.max_tps is not None else ""
+        cmd = f"{args.server} --test-duration {args.duration + 5.0} --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000 --log-file ./results/serverlog.bin {max_tps}"
 
     # srv_tcpdump = subprocess.Popen(f"{cli} tcpdump -i srv-br -w capture_server.pcap",
     #                        shell=True, text=True,
