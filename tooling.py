@@ -185,3 +185,9 @@ def enable_l2_mode(net):
         if sw.name.startswith("s"):  # only real switches
             print(f" {sw.name}: fail_mode=standalone")
             sw.cmd(f"ovs-vsctl set Bridge {sw.name} fail_mode=standalone")
+
+def mk_results_dir():
+    if not os.path.exists("results"):
+        os.mkdir("results")
+    else:
+        subprocess.run("rm results/*", shell=True)

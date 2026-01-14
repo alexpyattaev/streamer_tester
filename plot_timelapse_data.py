@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import argparse
+
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -13,7 +15,8 @@ from datatypes import (
 np.set_printoptions(suppress=True)
 
 
-def main():
+def main(hosts_file:str):
+
     transactions_per_second: dict[str, dict] = {}
     total_sent_bytes_per_host = {}
     total_sent_transactions_per_client = {}
@@ -56,7 +59,7 @@ def main():
 
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(18, 14))
     ax1_2 = ax1.twinx()
-    color_cycle = cycle(plt.cm.tab20.colors)
+    color_cycle = cycle(plt.cm.tab10.colors)
     for host, host_data in client_transport_stats.items():
         color = next(color_cycle)
         ax1.plot(
@@ -106,7 +109,7 @@ def main():
     ax2.set_xlim([0, (last_end_time - base_time) / 1e6])
     ax2.set_ylabel("Transactions per Second")
 
-    with open("solana_pubkeys.txt") as f:
+    with open(hosts_file) as f:
         for line in f:
             stakes[line.split(" ")[0]] = int(line.split(" ")[1])
 
@@ -170,4 +173,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        prog="plotter script",
+        description="plotter thing for results",
+        epilog="If you encounter some bug, I wish you a luck ©No-Manuel Macros",
+    )
+    parser.add_argument("hosts", type=str, help="file with staked accounts")
+    args = parser.parse_args()
+    main(args.hosts)
+

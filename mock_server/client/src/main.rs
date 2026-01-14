@@ -174,30 +174,31 @@ async fn run_endpoint(
             tx_size,
         );
         match tokio::time::timeout(
-            Duration::from_millis(1500),
+            Duration::from_millis(2500),
             send_data_over_stream(&connection, &tx_buffer[0..tx_size as usize]),
         )
         .await
         {
             Ok(Ok(_)) => {
                 transaction_id += 1;
-                // if transaction_id % 1000 == 0 {
-                //     debug!("{:?}", &connection_state);
-                // }
+                if transaction_id % 1000 == 0 {
+                    tracing::debug!("{:?}", &connection.stats());
+                }
             }
             Ok(Err(e)) => {
                 error!("Quic error {e}");
                 break;
             }
             Err(_e) => {
-                error!("Timeout sending stream, aborting");
-                break;
+                error!("Timeout sending stream ID {transaction_id}");
+                //break;
             }
         }
         if time_between_txs * transaction_id.saturating_sub(1) as f64
             > start.elapsed().as_secs_f64()
         {
-            tokio::time::sleep(Duration::from_millis(1)).await;
+            tokio::time::sleep(Duration::from_micros(10)).await;
+            dbg!("Throttling");
         }
     }
 

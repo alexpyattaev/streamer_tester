@@ -1,68 +1,19 @@
 #!/usr/bin/env python3
 
-from mininet.net import Mininet
-from mininet.node import OVSController
+import argparse
+import json
+import os
+import subprocess
+import sys
+from subprocess import call
+import parse
 from mininet.link import TCLink
 from mininet.log import setLogLevel
-from subprocess import call
-import argparse
-from tooling import watchdog
-import subprocess
-import json
-import sys
-import os
+from mininet.net import Mininet
+from mininet.node import OVSController
 
-
-class ClientNode:
-    def __init__(self, pubkey: str, latency: int, host):
-        self.pubkey = pubkey
-        self.latency = latency
-        self.host = host
-        self.proc = None
-
-    def run_iperf_client(self, target: str, duration: float, tx_size: int):
-        args = f"iperf3 -l{tx_size}b -c {target} -t{int(duration)} -u -b 1G"
-        print(f"running {args}...")
-        self.proc = self.host.popen(
-            f"{args}",
-            shell=True,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-    def run_agave_client(
-        self, target: str, duration: float, tx_size: int, num_connections: int
-    ):
-        args = f"./mock_server/target/release/client --target {target} --duration {duration} --host-name {self.pubkey} --staked-identity-file solana_keypairs/{self.pubkey}.json --num-connections {num_connections} --tx-size {tx_size} --disable-congestion"
-
-        print(f"running {args}...")
-        # self.tcpdump = subprocess.Popen(f"{cli} tcpdump -i veth_cli-2 -w capture_client.pcap",
-        #                         shell=True, text=True,
-        #                         stdout=subprocess.PIPE,
-        #                         stderr=subprocess.PIPE,
-        #                         )
-        self.proc = self.host.popen(
-            f"{args}",
-            shell=True,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-    def wait(self):
-        print(f"==== Terminating client {self.pubkey} latency {self.latency}")
-        if self.proc == None:
-            return
-        print(self.proc.stdout.read(), end="")  # pyright:ignore
-        print(self.proc.stderr.read(), end="")  # pyright:ignore
-        self.proc.wait()
-        # self.tcpdump.terminate()
-        # print("Waiting on tcpdump")
-        # self.tcpdump.wait()
-        print("======")
-        self.proc = None
-
+from tooling import watchdog, mk_results_dir
+from client_node import ClientNode
 
 def main():
     parser = argparse.ArgumentParser(
@@ -71,7 +22,8 @@ def main():
         epilog="If you encounter some bug, I wish you a luck ©No-Manuel Macros",
     )
     parser.add_argument("hosts", type=str, help="file with staked accounts")
-    parser.add_argument("--loss-percentage", type=int, default=0, help="0-100 allowed")
+    parser.add_argument("--loss-percentage", type=int, default=0,
+                        choices=list(range(0, 100)), help="0-99 allowed")
     parser.add_argument(
         "--iperf", action="store_true", help="Run iperf instead of agave"
     )
@@ -103,14 +55,7 @@ def main():
 
     args = parser.parse_args()
 
-    if not os.path.exists("results"):
-        os.mkdir("results")
-    else:
-        subprocess.run("rm results/*", shell=True)
-
-    if args.loss_percentage not in range(0, 100):
-        print("run ./sosim -h'")
-        exit()
+    mk_results_dir()
 
     client_identities = [
         line.strip().split(" ")[0].strip() for line in open(args.hosts, "r").readlines()
@@ -169,7 +114,7 @@ def main():
     server.wait()
     print("========Stopping clients=======")
     for node in client_nodes:
-        res = node.host.popen(
+        res = node.mininet_host.popen(
             "ip -s link show",
             shell=True,
             text=True,
@@ -177,7 +122,7 @@ def main():
             stderr=sys.stderr,
         )
         res.wait()
-        res = node.host.popen(
+        res = node.mininet_host.popen(
             "netstat -s",
             shell=True,
             text=True,
@@ -191,12 +136,13 @@ def main():
     # print("Waiting on server tcpdump")
     # srv_tcpdump.wait()
     subprocess.run("sudo chmod a+rw -R ./results/", shell=True, text=True, check=True)
-
+    subprocess.run("sudo chmod a+rw  datapoints.csv", shell=True, text=True, check=False)
     # print("*** Running CLI")
     # CLI(net)
 
     print("*** Stopping network")
     net.stop()
+    parse.main(args.hosts)
 
 
 def topology(client_identities, args):
@@ -216,20 +162,21 @@ def topology(client_identities, args):
     client_nodes = []
     print("*** Creating clients")
 
-    for idx, host_id in enumerate(client_identities, start=2):
+    for host_id in client_identities:
         host = net.addHost("client")
         link_delay = args.latency
         net.addLink(
             host,
             switch,
             delay=f"{link_delay}ms",
+            loss=1,
             max_queue_size=2000000,
             gro=False,
             txo=False,
             rxo=False,
         )
         configs[host_id] = {"latency": link_delay}
-        client_nodes.append(ClientNode(pubkey=host_id, latency=link_delay, host=host))
+        client_nodes.append(ClientNode(pubkey=host_id, latency=link_delay, mininet_host=host))
 
     print("*** Starting network")
     net.start()
@@ -250,6 +197,4 @@ if __name__ == "__main__":
 
         main()
 
-    import parse
 
-    parse.main()
