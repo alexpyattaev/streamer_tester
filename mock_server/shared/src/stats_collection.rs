@@ -16,6 +16,7 @@ pub struct StatsSample {
     pub udp_tx: u64,
     pub udp_rx: u64,
     pub congestion_events: u64,
+    pub congestion_window: u64,
     pub lost_packets: u64,
     pub time_stamp: u64,
     pub connection_id: u64,

@@ -15,7 +15,7 @@ from datatypes import (
 np.set_printoptions(suppress=True)
 
 
-def main(hosts_file:str):
+def main(hosts_file:str, show:bool):
 
     transactions_per_second: dict[str, dict] = {}
     total_sent_bytes_per_host = {}
@@ -57,39 +57,55 @@ def main(hosts_file:str):
         counts, edges = np.histogram(data["time"], bins=bins)
         transactions_per_second[host] = {"timeline": edges[0:-1], "TPS": counts * 100}
 
+    colormap = plt.cm.tab20 if len(transactions_per_second) > 10 else plt.cm.tab10
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(18, 14))
     ax1_2 = ax1.twinx()
-    color_cycle = cycle(plt.cm.tab10.colors)
+    color_cycle = cycle(colormap.colors)
     for host, host_data in client_transport_stats.items():
         color = next(color_cycle)
-        ax1.plot(
-            (host_data["time"] - base_time) / 1e6,
-            host_data["udp_tx"],
-            label=f"{host[0:7]}-udp_tx",
-            linestyle="-",
-            color=color,
-        )
+        # ax1.plot(
+        #     (host_data["time"] - base_time) / 1e6,
+        #     host_data["udp_tx"],
+        #     label=f"{host[0:7]}-udp_tx",
+        #     linestyle="-",
+        #     color=color,
+        # )
 
         ax1_2.plot(
             (host_data["time"] - base_time) / 1e6,
-            host_data["congestion_events"],
-            label=f"{host[0:7]}-congestions",
+            host_data["congestion_window"] / 1e3,
+            label=f"{host[0:7]}-congestion_window",
             linestyle=":",
             color=color,
         )
+        # ax1.plot(
+        #     (host_data["time"] - base_time) / 1e6,
+        #     host_data["congestion_events"] ,
+        #     label=f"{host[0:7]}-congestions",
+        #     linestyle="-",
+        #     color=color,
+        #     )
+        ax1.plot(
+            (host_data["time"] - base_time) / 1e6,
+            host_data["lost_packets"] ,
+            label=f"{host[0:7]}-lost_pkts",
+            linestyle="-",
+            color=color,
+            )
 
     ax1.set_xlim([0, (last_end_time - base_time) / 1e6])
     ax1_2.set_xlim([0, (last_end_time - base_time) / 1e6])
     ax1.set_xlabel("Time (seconds)")
-    ax1.set_ylabel("MBytes")
-    ax1_2.set_ylabel("Congestion events (dotted)", color="r")
+    ax1.set_ylabel("Lost packets")
+    ax1_2.set_ylabel("Congestion window (dotted) KB", color="r")
     ax1.grid(True)
 
-    color_cycle = cycle(plt.cm.tab20.colors)
+    color_cycle = cycle(colormap.colors)
     ax2_2 = ax2.twinx()
     ax2_2.set_ylabel("Server-side TPS (black)", color="black")
     for host, data in transactions_per_second.items():
         color = next(color_cycle)
+        print(host, color)
         linewidth = 1
         ax = ax2
         if host == "SERVER":
@@ -134,7 +150,7 @@ def main(hosts_file:str):
     stakes_bottom = 0
     volume_bottom = 0
     tps_bottom = 0
-    color_cycle = cycle(plt.cm.tab20.colors)
+    color_cycle = cycle(colormap.colors)
     for host in stakes.keys():
         color = next(color_cycle)
         label = f"{host[0:7]}"
@@ -170,6 +186,8 @@ def main(hosts_file:str):
 
     plt.title("Transmission, Reception, TPS")
     plt.savefig("TPS.png")
+    if show:
+        plt.show(block=True)
 
 
 if __name__ == "__main__":
@@ -179,6 +197,7 @@ if __name__ == "__main__":
         epilog="If you encounter some bug, I wish you a luck ©No-Manuel Macros",
     )
     parser.add_argument("hosts", type=str, help="file with staked accounts")
+    parser.add_argument("--show", action="store_true", help="Show plot for interactive ")
     args = parser.parse_args()
-    main(args.hosts)
+    main(args.hosts, args.show)
 

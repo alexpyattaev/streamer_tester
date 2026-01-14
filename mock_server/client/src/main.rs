@@ -148,6 +148,7 @@ async fn run_endpoint(
             udp_rx: con_stats.udp_rx.bytes,
             time_stamp: delta_time,
             congestion_events: con_stats.path.congestion_events,
+            congestion_window: con_stats.path.cwnd,
             lost_packets: con_stats.path.lost_packets,
             connection_id,
         };
