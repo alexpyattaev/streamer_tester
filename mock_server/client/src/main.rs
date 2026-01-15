@@ -77,29 +77,28 @@ async fn run(parameters: ClientCliParameters) -> anyhow::Result<()> {
             id,
         ));
     }
-    let mut total_sent: Vec<StatsSample> = Vec::with_capacity(10 * 1024 * 1024);
+    let mut all_stats: Vec<StatsSample> = Vec::with_capacity(10 * 1024 * 1024);
+    let mut total_sent = 0;
     for result in join_set.join_all().await {
-        let mut result = match result {
+        let (mut result, sent) = match result {
             Ok(result) => result,
             Err(e) => {
                 eprintln!("{e}");
                 continue;
             }
         };
-        total_sent.append(&mut result);
+        all_stats.append(&mut result);
+        total_sent += sent;
     }
-    total_sent.sort_by(|a, b| a.time_stamp.cmp(&b.time_stamp));
+    all_stats.sort_by(|a, b| a.time_stamp.cmp(&b.time_stamp));
     if let Some(host_name) = parameters.host_name.clone() {
         let mut writer = file_bin(host_name.clone())?;
-        for val in &total_sent {
+        for val in &all_stats {
             writer.write_all(bytemuck::bytes_of(val)).unwrap();
         }
         writer.flush().unwrap();
-        let total_sent = total_sent.len() as u64;
-        info!("TRANSACTIONS_SENT {}", total_sent);
     }
-
-    println!("Successfully completed!");
+    println!("TRANSACTIONS_SENT {}", total_sent);
     Ok(())
 }
 
@@ -117,7 +116,7 @@ async fn run_endpoint(
     }: ClientCliParameters,
     identity: Pubkey,
     connection_id: u64,
-) -> Result<Vec<StatsSample>, QuicClientError> {
+) -> Result<(Vec<StatsSample>, usize), QuicClientError> {
     let endpoint =
         create_client_endpoint(bind, client_config).expect("Endpoint creation should not fail.");
 
@@ -241,7 +240,7 @@ async fn run_endpoint(
     // Give the server a fair chance to receive the close packet
     endpoint.wait_idle().await;
     //let _ = feedback_reader.await;
-    Ok(stats_collector)
+    Ok((stats_collector, transaction_id))
 }
 
 /// return timestamp as ms
