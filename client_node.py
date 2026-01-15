@@ -21,9 +21,9 @@ class ClientNode:
         )
 
     def run_agave_client(
-        self, target: str, duration: float, tx_size: int, num_connections: int
+        self, target: str, duration: float, tx_size: int, num_connections: int, flags:str="",
     ):
-        args = f"./mock_server/target/release/client --target {target} --duration {duration} --host-name {self.pubkey} --staked-identity-file {self.KEY_DIR}/{self.pubkey}.json --num-connections {num_connections} --tx-size {tx_size}"# --disable-congestion"
+        args = f"./mock_server/target/release/client --target {target} --duration {duration} --host-name {self.pubkey} --staked-identity-file {self.KEY_DIR}/{self.pubkey}.json --num-connections {num_connections} --tx-size {tx_size} {flags}"
 
         print(f"running {args}...")
         if self.mininet_host is not None:

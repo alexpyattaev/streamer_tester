@@ -16,7 +16,7 @@ np.set_printoptions(suppress=True)
 
 
 def main(hosts_file:str, show:bool):
-
+    return
     transactions_per_second: dict[str, dict] = {}
     total_sent_bytes_per_host = {}
     total_sent_transactions_per_client = {}

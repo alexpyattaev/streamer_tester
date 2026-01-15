@@ -1,14 +1,9 @@
-
-from subprocess import Popen, getstatusoutput
+from subprocess import getstatusoutput
 from contextlib import contextmanager
 import subprocess
-import time
-import signal
-from typing import IO, Union
 from mininet.node import Host
 import os
 import fcntl
-import json
 
 def set_nonblocking(file_obj):
     fd = file_obj.fileno()  # Get the file descriptor
@@ -42,102 +37,11 @@ def write_entry_script(host: Host):
     os.chmod(name, 0o777)
 
 
-def gracefully_stop(handle: Popen):
-    print(f"Trying to stop process {handle.pid} {handle.args}")
-    if isinstance(handle, CRDS_Node):
-        handle.exit()
-    handle.send_signal(signal.SIGINT)
-    try:
-        handle.wait(10.0)
-    except subprocess.TimeoutExpired:
-        handle.terminate()
-        time.sleep(1.0)
-        handle.kill()
-
-
-class CRDS_Node:
-    def __init__(self, host: Host, cmd: str):
-        self.cmd = cmd
-        self.pipe = host.popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                               bufsize=1,  # Line-buffered
-                               universal_newlines=True)
-        assert self.pipe.stdin is not None
-        assert self.pipe.stdout is not None
-        self.stdin: IO = self.pipe.stdin
-        self.stdout: IO = self.pipe.stdout
-        set_nonblocking(self.stdout)
-        for i in range(10):
-            rv = self.out()
-            if not rv:
-                time.sleep(0.1)
-            else:
-                rv = json.loads(rv[0])
-                self.pubkey = rv["start_node"]
-                break
-        else:
-            raise RuntimeError(f"Process {cmd} on host {host} startup failure!")
-
-    def exit(self):
-        self.send("exit")
-
-    def __getattr__(self, attr: str):
-        return getattr(self.pipe, attr)
-
-    def help(self):
-        """Call the help on the node"""
-        self.send("help")
-
-    def send(self, msg: Union[str, dict], poll=True) -> list[str]:
-        """Send message to the node. Message could be a string or json."""
-        if isinstance(msg, dict):
-            msg = json.dumps(msg)
-        try:
-            self.stdin.write(msg + "\n")
-        except Exception:
-            print("Can not send, process is dead")
-            return []
-        if poll:
-            time.sleep(0.1)
-            return self.out()
-        else:
-            return []
-
-    def insert_contact_info(self, address: str, keypair: str = ""):
-        self.out()
-        ci = {"address": address}
-        if keypair:
-            ci['keypair'] = keypair
-        self.send(json.dumps({"InsertContactInfo": ci}))
-        return self.out()
-
-    def peers(self):
-        """Get list of CRDS peers"""
-        self.out()
-        self.send('{"Peers":null}', poll=False)
-        time.sleep(0.2)
-        rv = self.out()[0]
-        return json.loads(rv)
-
-    def out(self) -> list[str]:
-        """Get pending output from the pipe"""
-        rv = []
-        try:
-            while self.stdout.readable:
-                msg = self.stdout.readline()
-                if len(msg):
-                    rv.append(msg)
-                else:
-                    break
-        except BlockingIOError:
-            pass
-        return rv
-
-
 def run_repl(gossip, ip_addresses, net=None, topo=None, break_link=None, repair_link=None):
     banner = (
         "\n==================== Interactive Gossip Shell ====================\n"
         "Available variables:\n"
-        "  gossip         - list of all CRDS_Node instances\n"
+        "  gossip         - list of all CRDSNode instances\n"
         "  ip_addresses   - list of their IP addresses\n\n"
         "Available network functions:\n"
         "  break_link('region1', 'region2')\n"
@@ -158,7 +62,7 @@ def run_repl(gossip, ip_addresses, net=None, topo=None, break_link=None, repair_
         print("[WARNING] IPython not found. Falling back to basic shell.")
         print("You are now in a basic interactive mode.\n")
         print("Available variables:")
-        print("  gossip         -> list of all CRDS_Node objects")
+        print("  gossip         -> list of all CRDSNode objects")
         print("  ip_addresses   -> list of their IP addresses")
         print("\nExamples:")
         print("  gossip[0].help()                      # Show help for first node")
@@ -179,12 +83,14 @@ def run_repl(gossip, ip_addresses, net=None, topo=None, break_link=None, repair_
         except EOFError:
             pass
 
+
 def enable_l2_mode(net):
     print("=== L2 mode for OVS switches ===")
     for sw in net.switches:
         if sw.name.startswith("s"):  # only real switches
             print(f" {sw.name}: fail_mode=standalone")
             sw.cmd(f"ovs-vsctl set Bridge {sw.name} fail_mode=standalone")
+
 
 def mk_results_dir():
     if not os.path.exists("results"):

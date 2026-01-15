@@ -15,6 +15,7 @@ futures = { workspace = true }
 itertools = { workspace = true }
 log = { workspace = true }
 quinn = { workspace = true }
+quinn-proto = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
 rcgen = { workspace = true }

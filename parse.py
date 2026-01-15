@@ -7,12 +7,12 @@ import os
 import pprint
 import json
 import re
+
+import datatypes
 from datatypes import server_record_dtype
 
 
 def main(hosts_file:str):
-
-
     config = json.load(open("results/config.json"))
     pprint.pprint(config)
     duration = config["duration"]
@@ -35,9 +35,10 @@ def main(hosts_file:str):
 
     per_client = {}
     for file in os.listdir("results"):
-        if file.endswith("summary"):
-            num = np.fromfile(f"./results/{file}", dtype=np.uint64)
-            per_client[file.split(".")[0]] = num[0]
+        if file.endswith("host-transactions.bin"):
+            num = np.fromfile(f"./results/{file}", dtype=datatypes.client_record_dtype)
+            sent = num["sent"].max()
+            per_client[file.split("-")[0]] = sent
 
     datapoints = open("datapoints.csv", "a+")
     for id in stakes:

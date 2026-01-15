@@ -97,9 +97,6 @@ async fn run(parameters: ClientCliParameters) -> anyhow::Result<()> {
         writer.flush().unwrap();
         let total_sent = total_sent.len() as u64;
         info!("TRANSACTIONS_SENT {}", total_sent);
-        let mut num_sent_file =
-            std::fs::File::create(format!("results/{}.summary", host_name)).unwrap();
-        num_sent_file.write_all(&total_sent.to_ne_bytes()).unwrap();
     }
 
     println!("Successfully completed!");
@@ -134,25 +131,52 @@ async fn run_endpoint(
         NaiveDate::from_ymd_opt(2020, 3, 16).unwrap(),
         NaiveTime::MIN,
     );
-    let mut transaction_id = 0;
+    let mut transaction_id = 1;
     let mut tx_buffer = [0u8; PACKET_DATA_SIZE];
     let max_bitrate_bps = 200e6;
     let time_between_txs = (tx_size * 8) as f64 / max_bitrate_bps;
-
+    let (sent_tx, sent_rx) = tokio::sync::watch::channel(transaction_id);
+    let watcher = tokio::spawn({
+        let connection = connection.clone();
+        async move {
+            loop {
+                let sent = *sent_rx.borrow();
+                if sent == 0 {
+                    break;
+                }
+                let con_stats = connection.stats();
+                let now = Utc::now().naive_utc();
+                let delta_time = (now - solana_epoch).num_microseconds().unwrap() as u64;
+                let stats = StatsSample {
+                    udp_tx: con_stats.udp_tx.bytes,
+                    udp_rx: con_stats.udp_rx.bytes,
+                    time_stamp: delta_time,
+                    sent: sent as u64,
+                    congestion_events: con_stats.path.congestion_events,
+                    congestion_window: con_stats.path.cwnd,
+                    lost_packets: con_stats.path.lost_packets,
+                    connection_id,
+                };
+                stats_collector.push(stats);
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+            stats_collector
+        }
+    });
     loop {
-        let con_stats = connection.stats();
-        let now = Utc::now().naive_utc();
-        let delta_time = (now - solana_epoch).num_microseconds().unwrap() as u64;
-        let stats = StatsSample {
-            udp_tx: con_stats.udp_tx.bytes,
-            udp_rx: con_stats.udp_rx.bytes,
-            time_stamp: delta_time,
-            congestion_events: con_stats.path.congestion_events,
-            congestion_window: con_stats.path.cwnd,
-            lost_packets: con_stats.path.lost_packets,
-            connection_id,
-        };
-        stats_collector.push(stats);
+        // let con_stats = connection.stats();
+        // let now = Utc::now().naive_utc();
+        // let delta_time = (now - solana_epoch).num_microseconds().unwrap() as u64;
+        // let stats = StatsSample {
+        //     udp_tx: con_stats.udp_tx.bytes,
+        //     udp_rx: con_stats.udp_rx.bytes,
+        //     time_stamp: delta_time,
+        //     congestion_events: con_stats.path.congestion_events,
+        //     congestion_window: con_stats.path.cwnd,
+        //     lost_packets: con_stats.path.lost_packets,
+        //     connection_id,
+        // };
+        // stats_collector.push(stats);
 
         if let Some(duration) = duration {
             if start.elapsed() >= duration {
@@ -192,19 +216,22 @@ async fn run_endpoint(
             }
             Err(_e) => {
                 error!("Timeout sending stream ID {transaction_id}");
-                //break;
+                break;
             }
         }
+        sent_tx.send(transaction_id).unwrap();
         if time_between_txs * transaction_id.saturating_sub(1) as f64
             > start.elapsed().as_secs_f64()
         {
-            tokio::time::sleep(Duration::from_micros(10)).await;
-            dbg!("Throttling");
+            tokio::time::sleep(Duration::from_millis(1)).await;
         }
     }
+    sent_tx.send(0).unwrap();
+    let stats_collector = watcher.await.unwrap();
 
     // When the connection is closed all the streams that haven't been delivered yet will be lost.
     // Sleep to give it some time to deliver all the pending streams.
+    // This ensures the stats are clean and we do not falsely report losses.
     sleep(Duration::from_secs(3)).await;
 
     let connection_stats = connection.stats();

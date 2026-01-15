@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import subprocess
-import random
 import shutil
 from pathlib import Path
 import argparse

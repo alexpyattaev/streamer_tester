@@ -7,7 +7,7 @@ cd ~/streamer_torture/mock_server
 cargo build --release
 cd ../
 
-T="sudo ./main.py solana_pubkeys.txt --duration=5.0 --server=./swqos"
+T="sudo ./main.py solana_pubkeys.txt --duration=10.0 --server=./swqos"
 N=5
 
 make_and_run() {
@@ -27,7 +27,7 @@ make_and_run() {
 }
 
 # configure what latencies to test
-LATS=(5 50 100 150)
+LATS=(10 25 50 75 100 120)
 
 # run for different transaction sizes
 make_and_run 176 new "${LATS[@]}"
@@ -35,7 +35,7 @@ make_and_run 512 new "${LATS[@]}"
 make_and_run 1024 new "${LATS[@]}"
 
 
-T='sudo ./main.py solana_pubkeys.txt  --duration=3.0 --server=./swqos_current'
+T='sudo ./main.py solana_pubkeys.txt  --duration=10.0 --server=./swqos_current'
 
 # run for different transaction sizes
 make_and_run 176 old "${LATS[@]}"

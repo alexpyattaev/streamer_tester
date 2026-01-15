@@ -20,6 +20,7 @@ client_record_dtype = np.dtype(
     [
         ("udp_tx", np.uint64),
         ("udp_rx", np.uint64),
+        ("sent", np.uint64),
         ("congestion_events", np.uint64),
         ("congestion_window", np.uint64),
         ("lost_packets", np.uint64),
@@ -31,6 +32,7 @@ client_local_dtype = np.dtype(
     [
         ("udp_tx", np.uint64),
         ("udp_rx", np.uint64),
+        ("sent", np.uint64),
         ("congestion_events", np.uint64),
         ("congestion_window", np.uint64),
         ("lost_packets", np.uint64),

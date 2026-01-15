@@ -43,6 +43,9 @@ def main():
         help="number of clients to spawn (0 to spawn all available)",
         default=0,
     )
+    parser.add_argument(
+        "--disable_congestion", action="store_true", help="Disable congestion control"
+    )
     parser.add_argument("--tx-size", type=int, help="Transaction size", default=1000)
     parser.add_argument(
         "--max-tps",
@@ -60,7 +63,6 @@ def main():
     client_identities = [
         line.strip().split(" ")[0].strip() for line in open(args.hosts, "r").readlines()
     ]
-    client_nodes = []
 
     net, server_node, client_nodes = topology(client_identities, args)
 
@@ -71,7 +73,9 @@ def main():
     else:
         max_tps = f" --max-tps {args.max_tps}" if args.max_tps is not None else ""
         cmd = f"{args.server} --test-duration {args.duration + 5.0} --stake-amounts solana_pubkeys.txt --bind-to 0.0.0.0:8000 --log-file ./results/serverlog.bin {max_tps}"
-
+    flags = ""
+    if args.disable_congestion:
+        flags += "--disable-congestion"
     # srv_tcpdump = subprocess.Popen(f"{cli} tcpdump -i srv-br -w capture_server.pcap",
     #                        shell=True, text=True,
     #                        stdout=subprocess.PIPE,
@@ -104,6 +108,7 @@ def main():
                 num_connections=args.num_connections,
                 duration=args.duration,
                 tx_size=args.tx_size,
+                flags=flags,
             )
 
     try:
@@ -114,23 +119,23 @@ def main():
     server.wait()
     print("========Stopping clients=======")
     for node in client_nodes:
-        res = node.mininet_host.popen(
-            "ip -s link show",
-            shell=True,
-            text=True,
-            stdout=sys.stdout,
-            stderr=sys.stderr,
-        )
-        res.wait()
-        res = node.mininet_host.popen(
-            "netstat -s",
-            shell=True,
-            text=True,
-            stdout=sys.stdout,
-            stderr=sys.stderr,
-        )
-        res.wait()
-        node.wait()
+    #     res = node.mininet_host.popen(
+    #         "ip -s link show",
+    #         shell=True,
+    #         text=True,
+    #         stdout=sys.stdout,
+    #         stderr=sys.stderr,
+    #     )
+    #     res.wait()
+    #     res = node.mininet_host.popen(
+    #         "netstat -s",
+    #         shell=True,
+    #         text=True,
+    #         stdout=sys.stdout,
+    #         stderr=sys.stderr,
+    #     )
+    #     res.wait()
+         node.wait()
 
     # srv_tcpdump.terminate()
     # print("Waiting on server tcpdump")
@@ -169,7 +174,7 @@ def topology(client_identities, args):
             host,
             switch,
             delay=f"{link_delay}ms",
-            loss=1,
+            #loss=1,
             max_queue_size=2000000,
             gro=False,
             txo=False,

@@ -15,6 +15,7 @@ use bytemuck::{AnyBitPattern, NoUninit};
 pub struct StatsSample {
     pub udp_tx: u64,
     pub udp_rx: u64,
+    pub sent: u64,
     pub congestion_events: u64,
     pub congestion_window: u64,
     pub lost_packets: u64,
