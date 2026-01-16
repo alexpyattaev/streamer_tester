@@ -162,21 +162,8 @@ async fn run_endpoint(
             stats_collector
         }
     });
+    let mut last_report = Instant::now();
     loop {
-        // let con_stats = connection.stats();
-        // let now = Utc::now().naive_utc();
-        // let delta_time = (now - solana_epoch).num_microseconds().unwrap() as u64;
-        // let stats = StatsSample {
-        //     udp_tx: con_stats.udp_tx.bytes,
-        //     udp_rx: con_stats.udp_rx.bytes,
-        //     time_stamp: delta_time,
-        //     congestion_events: con_stats.path.congestion_events,
-        //     congestion_window: con_stats.path.cwnd,
-        //     lost_packets: con_stats.path.lost_packets,
-        //     connection_id,
-        // };
-        // stats_collector.push(stats);
-
         if let Some(duration) = duration {
             if start.elapsed() >= duration {
                 info!("Stopping TX generation after {duration:?}");
@@ -197,6 +184,10 @@ async fn run_endpoint(
             identity,
             tx_size,
         );
+        if last_report.elapsed() > Duration::from_secs(1) {
+            info!("{:?}", connection.stats());
+            last_report = Instant::now();
+        }
         match tokio::time::timeout(
             Duration::from_millis(2500),
             send_data_over_stream(&connection, &tx_buffer[0..tx_size as usize]),
