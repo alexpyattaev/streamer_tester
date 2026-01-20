@@ -5,6 +5,7 @@ import requests
 import threading
 import logging
 import sys
+import time
 from pathlib import Path
 
 # ---- configuration ----
@@ -64,7 +65,7 @@ def fetch_all_tpu_quic_addrs(pubkeys: list[str]) -> dict[str, str]:
 
 
 def run_client(pubkey: str, addr:str):
-
+    start_time = time.time()
     log_path = LOG_DIR / pubkey
     logging.info("Starting client for %s -> %s", pubkey, addr)
     args = f"{CLIENT_BIN} --target {addr} --max-bitrate-bps 10e3 --host-name {pubkey}  --num-connections 1 --tx-size 512"
@@ -77,9 +78,7 @@ def run_client(pubkey: str, addr:str):
         rc = proc.wait()
 
     logging.info(
-        "Client for %s terminated with exit code %d",
-        pubkey,
-        rc,
+        f"Client for {pubkey} terminated with exit code {rc} after {time.time()-start_time} seconds"
     )
 
 
