@@ -37,6 +37,13 @@ pub struct ClientCliParameters {
     )]
     pub max_txs_num: Option<usize>,
 
+    #[clap(
+        long,
+        help = "If specified, limits the generated traffic to given bits per second.",
+        default_value = "200e6"
+    )]
+    pub max_bitrate_bps: f64,
+
     // it is u64 (instead of usize) because clap value parser doesn't
     // work properly with usize.
     #[clap(long,

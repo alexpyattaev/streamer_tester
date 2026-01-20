@@ -112,6 +112,7 @@ async fn run_endpoint(
         tx_size,
         max_txs_num,
         num_connections,
+        max_bitrate_bps,
         ..
     }: ClientCliParameters,
     identity: Pubkey,
@@ -132,8 +133,8 @@ async fn run_endpoint(
     );
     let mut transaction_id = 1;
     let mut tx_buffer = [0u8; PACKET_DATA_SIZE];
-    let max_bitrate_bps = 200e6;
     let time_between_txs = (tx_size * 8) as f64 / max_bitrate_bps;
+    println!("{time_between_txs}");
     let (sent_tx, sent_rx) = tokio::sync::watch::channel(transaction_id);
     let watcher = tokio::spawn({
         let connection = connection.clone();
@@ -210,10 +211,11 @@ async fn run_endpoint(
             }
         }
         sent_tx.send(transaction_id).unwrap();
-        if time_between_txs * transaction_id.saturating_sub(1) as f64
-            > start.elapsed().as_secs_f64()
-        {
-            tokio::time::sleep(Duration::from_millis(1)).await;
+        // self-throttle as needed
+        let sleep = time_between_txs * transaction_id.saturating_sub(1) as f64
+            - start.elapsed().as_secs_f64();
+        if sleep > 0.0 {
+            tokio::time::sleep(Duration::from_secs_f64(sleep)).await;
         }
     }
     sent_tx.send(0).unwrap();
