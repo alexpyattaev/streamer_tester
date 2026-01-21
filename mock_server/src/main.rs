@@ -9,21 +9,22 @@ use client::quic_networking::ConnectionState;
 use tracing::debug;
 use std::sync::atomic::Ordering::Relaxed;*/
 use quinn::ClientConfig;
-use shared::stats_collection::{file_bin, StatsSample};
-use solana_sdk::{pubkey::Pubkey, signer::Signer};
+use solana_pubkey::Pubkey;
 use std::io::Write as _;
 use tracing::error;
 use {
-    client::{
+    solana_keypair::{EncodableKey, Keypair, Signer},
+    solana_mock_client::{
         cli::{build_cli_parameters, ClientCliParameters},
         error::QuicClientError,
         quic_networking::{
             create_client_config, create_client_endpoint, send_data_over_stream,
             QuicClientCertificate,
         },
+        stats_collection::{file_bin, StatsSample},
         transaction_generator::generate_dummy_data,
     },
-    solana_sdk::{packet::PACKET_DATA_SIZE, signature::Keypair, signer::EncodableKey},
+    solana_packet::PACKET_DATA_SIZE,
     std::{
         sync::Arc,
         time::{Duration, Instant, SystemTime, UNIX_EPOCH},

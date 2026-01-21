@@ -1,26 +1,24 @@
-
-[workspace]
-members = ["shared", "client", "server"]
-
+[package]
+name = "solana_mock_client"
 resolver = "2"
 
-[workspace.package]
-version = "0.1.0"
-authors = ["Kirill Lykov"]
+authors = ["Kirill Lykov", "Alex Pyattaev"]
 repository = "https://github.com/tobedone"
 license = "MIT"
 edition = "2021"
 
-[workspace.dependencies]
+[dependencies]
+bytemuck = {version="1.24.0", features=["derive"]}
+solana-pubkey = "4.*"
+solana-keypair = "3.*"
+solana-packet = "4.*"
+solana-signature = "3.*"
 atty = "0.2.11"
-clap = { version = "4", features = ["derive"] }
-chrono = { version = "0.4.41", default-features = false, features = ["clock"] }
-pem = "1.1.1"
+clap = { version = "4", features = ["derive", "cargo"] }
+chrono = { version = "0.4.41", features = ["clock", "now"] }
 anyhow = "1.0.98"
-bytemuck = "1.24.0"
 bytes = { version = "1.10" }
 thiserror = "1.0.58"
-directories-next = "2"
 tokio = { version = "1.45", features = [
     "rt",
     "rt-multi-thread",
@@ -38,28 +36,19 @@ tracing-subscriber = { version = "0.3.0", default-features = false, features = [
     "time",
     "local-time",
 ] }
-tracing-futures = { version = "0.2.0", default-features = false, features = [
-    "std-future",
-] }
 rand = "0.8"
-url = "2"
 # versions from the agave
 quinn = { package = "quinn", version = "=0.11.9" }
+#quinn = { package = "quinn", git = "https://github.com/quinn-rs/quinn.git", rev = "d8302dfaeb7a137fb29d827837b29a613340a7c6" }
 quinn-proto = { package = "quinn-proto", version = "=0.11.13" }
-rcgen = "0.12.0"
-solana-streamer = { version = "2.2" }
-solana-sdk = { version = "2.2" }
-futures = "0.3.28"
+#quinn-proto = { package = "quinn-proto", git = "https://github.com/quinn-rs/quinn.git", rev = "8936cc059c66c6010aeee873a996f82d3fbbc389" }
 rand_chacha = "0.3.1"
-itertools = { version = "*" }
-bincode = "1.3.3"
 serde_json = { version = "*" }
 log = { version = "*" }
-smallvec = "1.13.2"
 x509-parser = "0.14.0"
 # See "zeroize versioning issues" below if you are updating this version.
 zeroize = { version = "1.7", default-features = false }
-
+solana-tls-utils = {version="3.1.7", features=["agave-unstable-api"]}
 [profile.release]
 debug = 2
 

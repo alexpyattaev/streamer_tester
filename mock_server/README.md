@@ -1,39 +1,19 @@
-## Mock agave client and server
+## Mock agave client
 
-The `server` and `client` demonstrate how agave client/server works with quic-based TPU protocol.
+The`solana_mock_client` demonstrates how agave client works with quic-based TPU protocol.
 
-1. Server (`server.rs`)
-
-To model current server with relevant parameters:
-
-```shell
-$ RUST_LOG=info ./server --listen 0.0.0.0:8009 --receive-window-size 630784  --max-concurrent-streams 512 --stream-receive-window-size 1232
-```
-
-Server has an option to write reorder log in the csv file (see `--write_reordering_log`).
-
-2. Client (`client.rs`)
 
 In a new terminal execute:
 
 ```shell
-$ ./client --target <IP>:8009 --duration 600 --num-connections 4
+$ ./solana_mock_client --target <IP>:8009 --duration 600 --num-connections 4
 ```
 
 Note that we don't use blockhash. This would require usage of RPC client.
 
 
-## What to change in the original client
 
-* There is no need to `Arc` structures (connection etc) which are clonable already.
-* We use QUIC_CONNECTION_HANDSHAKE_TIMEOUT which should not be used, max_idle_timeout will determine timeout.
-* PORT 0 means that it will identified by OS so why do we search manually?
-* Do we want to keep alive staked connections? It is possible to achieve by setting:
-
-```rust
-transport_config.max_idle_timeout(Some(timeout));
-transport_config.keep_alive_interval(Some(QUIC_KEEP_ALIVE));
-```
+## Some notes
 
 Currently, what I found that we set one timeout of all and not `keep_alive_interval`
 

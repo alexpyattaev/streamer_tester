@@ -7,15 +7,15 @@ use quinn::{
 };
 use quinn_proto::RttEstimator;
 use rustls::KeyLogFile;
-use solana_sdk::signature::Keypair;
+use solana_keypair::Keypair;
 //use std::sync::atomic::Ordering::Relaxed;
 
 use {
     crate::error::QuicClientError,
-    server::tls_certificates::new_dummy_x509_certificate,
-    solana_streamer::nonblocking::quic::ALPN_TPU_PROTOCOL_ID,
+    solana_tls_utils::new_dummy_x509_certificate,
     std::{net::SocketAddr, sync::Arc, time::Duration},
 };
+pub const ALPN_TPU_PROTOCOL_ID: &[u8] = b"solana-tpu";
 
 const QUIC_MAX_TIMEOUT: Duration = Duration::from_secs(2);
 // TODO(klykov): it think the ratio between these consts should be higher
@@ -120,13 +120,13 @@ impl Controller for NopCongestion {
         // self.window_size
         Self::MAX_WINDOW_SIZE
     }
-    fn clone_box(&self) -> Box<(dyn Controller + 'static)> {
+    fn clone_box(&self) -> Box<dyn Controller + 'static> {
         Box::new(self.clone())
     }
     fn initial_window(&self) -> u64 {
         Self::MIN_WINDOW_SIZE
     }
-    fn into_any(self: Box<Self>) -> Box<(dyn std::any::Any + 'static)> {
+    fn into_any(self: Box<Self>) -> Box<dyn std::any::Any + 'static> {
         Box::new(self)
     }
 
@@ -168,7 +168,7 @@ impl Controller for NopCongestion {
     }
 }
 impl ControllerFactory for NopCongestion {
-    fn build(self: Arc<Self>, _: std::time::Instant, _: u16) -> Box<(dyn Controller + 'static)> {
+    fn build(self: Arc<Self>, _: std::time::Instant, _: u16) -> Box<dyn Controller + 'static> {
         Box::new(Self::new())
     }
 }
